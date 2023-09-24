@@ -8,7 +8,13 @@ local os = require("os")
 local U  = require('me_utilities')
 
 DiscordLink = {
-	config = {directory = lfs.writedir()..[[Logs\]]},
+	config = 
+	{
+		directory = lfs.writedir()..[[Logs\]],
+		channelEnv = "DcsDiscordLinkWebhooks",
+		userFlagRoot = "DiscordLink_",
+		retrySendSeconds = 10
+	},
 	-- logString = [[			
 	-- 	obj2str = function(obj, antiCirc,maxdepth)
 	-- 		if maxdepth<=0 then
@@ -39,7 +45,7 @@ DiscordLink = {
 	-- 					msg = msg..obj2str(k,antiCirc,maxdepth -1)..':'..obj2str(v,antiCirc,maxdepth-1)..', '
 	-- 				end
 	-- 			end
-	-- 			msg = msg..'}'
+	-- 			msg = msg..'}'pushLookup
 	-- 		elseif t == 'number' or t == 'string' then
 	-- 			msg = msg..obj
 	-- 		elseif t == 'boolean' then
@@ -55,16 +61,35 @@ DiscordLink = {
 	-- 	end
 
 	-- 	return obj2str(_G,nil,2)]]},
+
 	logFile = io.open(lfs.writedir()..[[Logs\DCS_DiscordLink.log]], "w"),
 	currentLogFile = nil,
 	pollFrameTime = 0,
     webhooks = {},
-    channelEnv = "DcsDiscordLinkWebhooks",
-	templates = {},
+	templates = {}, -- key = template handle, value = {}
+	strings = {},
+	players = {},
+	funcs = {
+		"integer" = DiscordLink.formatInteger
+	},
 	nextMsgPartId = 1,
-	msgPartLookup = {templates = {}, strings={}}, -- key = string/handle, value = id
-	msgPartRevLookup = {templates = {}, strings={}}, -- key = id, value = string/handle
-	scriptRoot = lfs.writedir()..[[Mods\Services\DCS_DiscordLink]]
+
+	 -- key = msgPartCat. value = {key = handle, value = id}
+	msgPartLookup = {template = {}, string = {}, player = {}, func = {}},
+
+	-- key = id, value = {msgPartCat,handle}
+	msgPartRevLookup = {}, 
+	msgQueue = {},
+	msgRateEpoch = nil,
+	msgCountSinceEpoch = nil,
+
+	-- Module constants
+	msgPartCat = {template = 1, string = 2, player = 3, func = 4},
+	scriptRoot = lfs.writedir()..[[Mods\Services\DCS_DiscordLink]],
+	webhookPrefix = "https://discord.com/api/webhooks/"
+	scrEnvMission = "mission",
+	scrEnvServer = "server",
+
 }
 
 package.cpath = package.cpath..";"..DiscordLink.scriptRoot..[[\https\?.dll;]]
@@ -144,16 +169,16 @@ function DiscordLink.saveConfiguration()
     U.saveInFile(DiscordLink.config, 'config', lfs.writedir()..'Config/DiscordLink.lua')
 end
 
---error handler for xpcalls. wraps hitch_trooper.log_e:error
+--error handler for xpcalls
 DiscordLink.catchError=function(err)
 	DiscordLink.log(err)
 end 
 
-DiscordLink.safeCall = function(func,args)
+DiscordLink.safeCall = function(func,...)
 	local op = func
-	if args then 
+	if arg then 
 		op = function()
-			func(unpack(args))
+			func(unpack(arg))
 		end
 	end
 	
@@ -161,51 +186,192 @@ DiscordLink.safeCall = function(func,args)
 end
 
 --------------------------------------------------------------
+-- DEFAULT FUNCTIONS
+
+DiscordLink.formatInteger = function(pack)
+	--TODO tidy
+	return pack[1]
+end
+
+DiscordLink.addDefaultFuncs = function()
+	local lookup = {}
+
+	for k,v in pairs(DiscordLink.funcs) do
+		local revLookupEntry = {msgPartCat.func,k}
+		local existingInd = DiscordLink.msgPartLookup.func[k]
+		if  existingInd == nil then
+			DiscordLink.msgPartRevLookup[DiscordLink.nextMsgPartId] = revLookupEntry
+			lookup[k] = DiscordLink.nextMsgPartId
+			DiscordLink.nextMsgPartId = DiscordLink.nextMsgPartId + 1
+		else
+			DiscordLink.msgPartRevLookup[existingInd] = revLookupEntry
+			lookup[k] = existingInd
+		end
+	end
+	DiscordLink.msgPartLookup.func = lookup
+end 
+DiscordLink.addDefaultFuncs()
+
+--------------------------------------------------------------
 -- LOAD TEMPLATES
+
+DiscordLink.addTemplate=function(templateKey,webhookKey,username,content)
+	DiscordLink.templates[templateKey] = {
+		webhookKey = webhookKey,
+		username = username,
+		content = content
+	}
+end
 
 DiscordLink.reloadTemplates = function()
 	DiscordLink.templates = {}
+	local messagesDir = DiscordLink.scriptRoot..[[\messages]]
 
-	for fpath in lfs.dir(DiscordLink.scriptRoot..[[\messages]]) do
-		if lfs.attributes(fpath,"mode") == "file" then
-			dofile(fpath)			
+	DiscordLink.log(messagesDir)	
+	for fpath in lfs.dir(messagesDir) do
+		local fullPath = messagesDir .. "\\" .. fpath
+		DiscordLink.log("Found "..fpath)
+		DiscordLink.log(lfs.attributes(fullPath,"mode"))
+		if lfs.attributes(fullPath,"mode") == "file" then
+			DiscordLink.log("Loading ".. fpath)	
+			DiscordLink.safeCall(dofile,fullPath)		
 		end
 	end
 
 	local templateLookup = {}
-	local templateRevLookup = {}
 	for k,v in pairs(DiscordLink.templates) do
-		local existingInd = DiscordLink.msgPartLookup.templates[k]
+		local existingInd = DiscordLink.msgPartLookup.template[k]
+		local revLookupEntry = {DiscordLink.msgPartCat.template, k}
+
 		if  existingInd == nil then
-			templateRevLookup[nextMsgPartId] = k
-			templateLookup[k] = nextMsgPartId
-			nextMsgPartId = nextMsgPartId + 1
+			DiscordLink.msgPartRevLookup[DiscordLink.nextMsgPartId] = revLookupEntry
+			templateLookup[k] = DiscordLink.nextMsgPartId
+			DiscordLink.nextMsgPartId = DiscordLink.nextMsgPartId + 1
 		else
-			templateRevLookup[existingInd] = k
+			DiscordLink.msgPartRevLookup[existingInd] = revLookupEntry
 			templateLookup[k] = existingInd
 		end
 	end
-	DiscordLink.msgPartLookup.templates = templateLookup
-	DiscordLink.msgPartRevLookup.templates = templateRevLookup
+	DiscordLink.msgPartLookup.template = templateLookup
+
+	DiscordLink.log(DiscordLink.templates)
 end
 
+--------------------------------------------------------------
+-- PUSH TO MISSION ENVIRONMENT ACTIONS
+
 DiscordLink.pushLookup = function()
-	local execString = [[a_do_script(
-		[=[ -- Executed in mission scrripting environment
+	local execString = 
+	[[
+		a_do_script(
+		[=[ -- Executed in mission scripting environment
 			if DiscordLink == nil then DiscordLink = {} end 
-			DiscordLink.msgPartLookup = { ]]
+			DiscordLink.msgPartLookup = 
+	]]
 
-	for k,v in pairs(DiscordLink.msgPartLookup) do
-		execString = execString ..[[[']] .. k .. [[']={ ]]
-		for l,w in pairs(v) do
-			execString = execString .. [[[']] .. l ..[[']=]]..w..[[, ]]
+	execString = execString .. DiscordLink.obj2str(DiscordLink.msgPartLookup)
+
+	execString = execString .. [[]=])]]
+
+	DiscordLink.log(execString)
+	net.dostring_in(DiscordLink.scrEnvMission, execString)
+	DiscordLink.log("Lookup Pushed")
+end
+
+DiscordLink.pushConfig = function()
+	--TODO
+end
+
+--------------------------------------------------------------
+-- POP MESSAGES
+
+DiscordLink.popMessages = function()
+	local i = 1
+	while i < 200 do
+		local userFlag = DiscordLink.config.userFlagRoot..i
+		local execString = 
+		[[
+			-- Executed server mission scripting environment
+			return(trigger.misc.getUserFlag("]]..userFlag..[["))
+		]]
+	
+		local resultRaw = net.dostring_in(DiscordLink.scrEnvServer, execString)
+		DiscordLink.log({result, type(result)})
+
+		local result = tonumber(resultRaw)
+		if result == nil or result == 0 then -- 0 used for boolean false (end of messages)
+			break 
+		elseif result ~= 1 then -- 1 used for boolean true (skip message)
+			local templateKey = DiscordLink.msgPartRevLookup[result]
+			if templateKey ~= nil and templateKey[1] == msgPartCat.func then
+				msgQueue[#msgQueue + 1] = {
+					template = templateKey[2], 
+					args = DiscordLink.popMessagesRecurse(userFlag,1),
+					sendCount = 0,
+					lastSent = nil
+				}
+			else
+				DiscordLink.log("Invalid template handle: " .. result)
+			end
 		end
-		execString = execString .. [[},]]
-	end
-		
-	execString = execString ..[[}]=])]]
 
-	net.dostring_in("server", execString)
+		-- clear flag
+		execString = 
+		[[
+			-- Executed server mission scripting environment
+			trigger.action.setUserFlag("]]..userFlag..[[",true)
+		]]
+	
+		net.dostring_in(DiscordLink.scrEnvServer, execString)
+
+		i = i + 1
+	end
+end
+
+DiscordLink.popMessagesRecurse = function(userFlagRoot,recurseLevel)
+	local ret = nil
+	if recurseLevel > 4 then return ret end
+
+	local i = 1
+	while i < 200 do
+		local userFlag = userFlagRoot.."_"..i
+		local execString = 
+		[[
+			-- Executed server mission scripting environment
+			return(trigger.misc.getUserFlag("]]..userFlag..[["))
+		]]
+	
+		local resultRaw = net.dostring_in(DiscordLink.scrEnvServer, execString)
+		DiscordLink.log({result, type(result)})
+
+		local result = tonumber(resultRaw)
+		if result == nil or result == 0  or result == 1 then 
+			break 
+		elseif result > 0 then
+			result = result - 2
+		end
+		
+		if not ret then ret = {} end
+
+		local args = DiscordLink.popMessagesRecurse(userFlag,recurseLevel+1)
+		ret[#ret + 1] = {
+			handle = result,
+			args = args
+		}
+
+		-- clear flag
+		execString = 
+		[[
+			-- Executed server mission scripting environment
+			trigger.action.setUserFlag("]]..userFlag..[[",true)
+		]]
+
+		net.dostring_in(DiscordLink.scrEnvServer, execString)
+
+		i = i + 1
+	end
+
+	return ret
 end
 
 --------------------------------------------------------------
@@ -222,7 +388,7 @@ DiscordLink.safeCall(
 
 DiscordLink.safeCall(
     function()
-        local envVar = os.getenv(DiscordLink.channelEnv)
+        local envVar = os.getenv(DiscordLink.config.channelEnv)
         if envVar == nil then return end
 
         for k,v in string.gmatch(envVar,"([^;]+)=([^;]+);?") do
@@ -234,20 +400,22 @@ DiscordLink.safeCall(
 --------------------------------------------------------------
 -- MAIN LOOP LOGIC
 
-DiscordLink.SanitizeLiteralForJson = function(rawString)
-    local ret = string.gsub(rawString,"\\","\\\\")
-    ret = string.gsub(ret,"\"","\\\"")
-    return ret
-end
-
 DiscordLink.TrySendToWebhook = function (webhook,username,content)
     if DiscordLink.webhooks[webhook] == nil then
         DiscordLink.log("Webhook "..webhook.." not found")
-        return
+        return false
+	elseif username == nil or username == "" then
+		DiscordLink.log("Missing username for call to webhook "..webhook)
+        return false
     end
-    local webhookUrl = "https://discord.com/api/webhooks/".. DiscordLink.webhooks[webhook]
-    local body = [[{"content":"]] .. DiscordLink.SanitizeLiteralForJson (content) ..
-                [[","username":"]] .. DiscordLink.SanitizeLiteralForJson (username) .. [["}]]
+
+	local bodyRaw = {
+		username = username,
+		content = content
+	}
+
+    local webhookUrl = DiscordLink.webhookPrefix .. DiscordLink.webhooks[webhook]
+    local body = net.lua2json(bodyRaw)
 
     local T, code, headers, status =  https.request({url = webhookUrl,
         method = "POST",
@@ -259,13 +427,123 @@ DiscordLink.TrySendToWebhook = function (webhook,username,content)
     if T == nil or code == nil or code < 200 or code >= 300 then
         if code == nil then code = "??" end
         DiscordLink.log("Failed to Call Discord. Http Status: " .. code)
+		return false
     end
+
+	return true
 end
 
+DiscordLink.SendQueuedMessage = function(queueItem)
+
+	if queueItem.compiledMessage == nil then
+		queueItem.compiledMessage = DiscordLink.MakeMsgContent(queueItem)
+	end
+
+	local template = DiscordLink.templates[queueItem.template]
+
+	if template == nil then
+		DiscordLink.log("Template not found: " .. template)
+		return false
+	end 
+
+	return DiscordLink.TrySendToWebhook(template.webhookKey,template.username, queueItem.compiledMessage)
+end
+
+DiscordLink.PopAndSendAll = function ()
+    DiscordLink.popMessages()
+
+	local retryCuttoff = os.time() - DiscordLink.config.retrySendSeconds
+
+	for k,v in pairs(DiscordLink.msgQueue) do
+
+		if v.lastSent == nil or v.lastSent < retryCuttoff then
+			if DiscordLink.SendQueuedMessage(v) then
+				-- on success
+				DiscordLink.msgQueue[k] = nil 
+			else
+				-- on failure
+				v.lastSent = os.time() -- os.date("%c",os.time())
+				v.sendCount = v.sendCount + 1
+			end
+		end
+	end
+end
+
+DiscordLink.MakeMsgContent = function (msgData)
+	local template = DiscordLink.templates[msgData.template]
+
+	local rawTemplate = template.content
+
+	local subStrings = {}
+	for i,v in ipairs(msgData.args) do
+		subStrings[i] = DiscordLink.msgArgToString(v.handle, v.args) 
+	end
+
+	DiscordLink.log({"Replacement substrings", subStrings})
+
+	local finalText = ""
+	local at = 1
+	local atEnd = string.len(rawTemplate)
+	while at <= atEnd do
+		local found = string.find(rawTemplate,"%%", at) -- "%" (%% in lua regexp) starts replaceable token
+
+		if found == nil then
+			finalText = finalText .. string.sub(rawTemplate, at, atEnd)
+			break
+		elseif  found > at then
+			finalText = finalText .. string.sub(rawTemplate, at, found - 1)
+		end
+		
+		if string.sub(found,2) == "%%" then
+			finalText = finalText .. "%"
+			at = found + 2
+		elseif
+			local tok = ""
+			local foundEnd = string.find(rawTemplate,"%s", found + 1)
+			if foundEnd  == nil then
+				tok = string.sub(rawTemplate, found + 1, atEnd)
+				at = atEnd + 1
+			else
+				tok = string.sub(rawTemplate, found + 1, foundEnd - 1)
+				at = foundEnd + 1
+			end
+
+			local substring = substrings[tok]
+			if substring == nil then
+				substring = ""
+				DiscordLink.log("Substring not found for  \"" .. tok .. "\"")
+			end
+			finalText = finalText .. tok
+		end
+	end
+	return finalText
+end
+
+DiscordLink.msgArgToString = function (handle, msgArg)
+
+	local handleVal = DiscordLink.msgPartRevLookup[handle]
+
+	if handleVal == nil or #handleVal < 2 then
+		DiscordLink.log("Unrecognised message part handle: " .. handle)
+		return nil
+	end
+
+	if handleVal[1] == DiscordLink.msgPartCat.string then
+		return DiscordLink.strings[handleVal[2]]
+	elseif handleVal[1] == DiscordLink.msgPartCat.player then
+		return DiscordLink.players[handleVal[2]]
+	elseif handleVal[1] == DiscordLink.msgPartCat.func then
+		return DiscordLink.funcs[handleVal[2]](msgArg)
+	else
+		DiscordLink.log("Unrecognised message part type " .. handleVal[1] .. " for handle "..handle)
+		DiscordLink.log({"DiscordLink.msgPartRevLookup:",DiscordLink.msgPartRevLookup})
+		return nil
+	end	
+end
 
 --TODO:
--- Queue message
--- Try send from queue
+-- Queue message //
+-- Try send from queue 
 -- Retries and timeout
 -- Rate limits
 -- Polling mission environment
@@ -289,7 +567,7 @@ DiscordLink.doOnMissionLoadBegin = function()
 
 	DiscordLink.reloadTemplates()
 
-	--DiscordLink.SimInit = false -- TODO
+	DiscordLink.SimInit = false -- TODO
 end
 
 DiscordLink.onMissionLoadEnd = function()
@@ -299,6 +577,7 @@ end
 
 DiscordLink.doOnMissionLoadEnd = function()
 	DiscordLink.log("Mission "..DCS.getMissionName().." loaded",DiscordLink.currentLogFile)
+	
 	-- DiscordLink.log("Mission "..DCS.getMissionFilename().." loaded",DiscordLink.currentLogFile)
 end
 
@@ -381,6 +660,7 @@ DiscordLink.onSimulationFrame = function()
 		--if not DCS.isServer() or not DCS.isMultiplayer() then return end -- TODO Test
 		DiscordLink.pollFrameTime = 0
 		
+		DiscordLink.log(DiscordLink.popMessages())
 		--TODO Test
 		-- local foo = net.dostring_in("mission", [[return a_do_script("if helms == nil then return \"No HeLMS\" else return \"HeLMS detected\" end")]])
 		-- -- local foo = net.dostring_in("server", [[if myvar==true then  return "No HeLMS" else myvar=true return "HeLMS detected" end ]])
@@ -389,47 +669,47 @@ DiscordLink.onSimulationFrame = function()
 		-- local foo = net.dostring_in("mission", [[if helms == nil then return "No HeLMS" else return "HeLMS detected" end]])
 		-- DiscordLink.log(foo)
 		
-		foo = net.dostring_in("mission", DiscordLink.config.logString)
-		DiscordLink.log(foo)
+		-- foo = net.dostring_in("mission", DiscordLink.config.logString)
+		-- DiscordLink.log(foo)
 
-		foo = net.dostring_in("server", DiscordLink.config.logString)
-		DiscordLink.log(foo)
+		-- foo = net.dostring_in("server", DiscordLink.config.logString)
+		-- DiscordLink.log(foo)
 
 		if not DiscordLink.SimInit then
-
-			local initString = [[		
-				DiscordLinkEventHandler  = { 
-					onEvent = function(self,event)
-						DiscordLinkEventHandler.text = event.text
-						if(event.id == world.event.S_EVENT_MARK_CHANGE) then
-							DiscordLinkEventHandler.text = event.text
-						end
-					end
-				}
-				world.addEventHandler(DiscordLinkEventHandler)
-			]]
-			local foo = net.dostring_in("server", initString)
-			DiscordLink.log(foo)
-			local foo = net.dostring_in("mission", initString)
-			DiscordLink.log(foo)
+			DiscordLink.pushLookup()
+			-- local initString = [[		
+			-- 	DiscordLinkEventHandler  = { 
+			-- 		onEvent = function(self,event)
+			-- 			DiscordLinkEventHandler.text = event.text
+			-- 			if(event.id == world.event.S_EVENT_MARK_CHANGE) then
+			-- 				DiscordLinkEventHandler.text = event.text
+			-- 			end
+			-- 		end
+			-- 	}
+			-- 	world.addEventHandler(DiscordLinkEventHandler)
+			-- ]]
+			-- local foo = net.dostring_in("server", initString)
+			-- DiscordLink.log(foo)
+			-- local foo = net.dostring_in("mission", initString)
+			-- DiscordLink.log(foo)
 			DiscordLink.SimInit= true
-		else
-			local readString = [[		
-				if DiscordLinkEventHandler == nil then 
-					return "??1"
-				elseif DiscordLinkEventHandler.text == nil then
-					return "??2"
-				else 
-					return DiscordLinkEventHandler.text
-				end
-			]]
-			local foo = net.dostring_in("server", readString)
-			DiscordLink.log(foo)
-			local foo = net.dostring_in("mission", readString)
-			DiscordLink.log(foo)
+		-- else
+		-- 	local readString = [[		
+		-- 		if DiscordLinkEventHandler == nil then 
+		-- 			return "??1"
+		-- 		elseif DiscordLinkEventHandler.text == nil then
+		-- 			return "??2"
+		-- 		else 
+		-- 			return DiscordLinkEventHandler.text
+		-- 		end
+		-- 	]]
+		-- 	local foo = net.dostring_in("server", readString)
+		-- 	DiscordLink.log(foo)
+		-- 	local foo = net.dostring_in("mission", readString)
+		-- 	DiscordLink.log(foo)
 		end
 
-		DiscordLink.log(DiscordLink.text)
+		--DiscordLink.log(DiscordLink.text)
 	else	
 		DiscordLink.pollFrameTime = DiscordLink.pollFrameTime + 1
 	end

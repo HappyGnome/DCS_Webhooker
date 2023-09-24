@@ -1,4 +1,1 @@
-DiscordLink.templates["example"] = {
-    username = "ExampleBot",
-    content = [[Hello from template]]
-}
+DiscordLink.addTemplate("example","default","ExampleBot",[[Hello from template]])
