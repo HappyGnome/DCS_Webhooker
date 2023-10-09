@@ -44,21 +44,21 @@ DiscordLinkLoader.obj2str = function(obj)
   if obj == nil then 
       return '??'
   end
-local msg = ''
-local t = type(obj)
-if t == 'table' then
-  msg = msg..'{'
-  for k,v in pairs(obj) do
-    local t = type(v)
-    msg = msg..k..':'..DiscordLinkLoader.obj2str(v)..', '
+  local msg = ''
+  local t = type(obj)
+  if t == 'table' then
+    msg = msg..'{'
+    for k,v in pairs(obj) do
+      local t = type(v)
+      msg = msg..k..':'..DiscordLinkLoader.obj2str(v)..', '
+    end
+    msg = msg..'}'
+  elseif t == 'number' or t == 'string' or t == 'boolean' then
+    msg = msg..obj
+  elseif t then
+    msg = msg..t
   end
-  msg = msg..'}'
-elseif t == 'number' or t == 'string' or t == 'boolean' then
-  msg = msg..obj
-elseif t then
-  msg = msg..t
-end
-return msg
+  return msg
 end
 
 --error handler for xpcalls
