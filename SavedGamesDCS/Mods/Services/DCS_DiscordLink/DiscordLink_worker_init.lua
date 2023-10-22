@@ -20,17 +20,18 @@ local https = require("https")
 
 MessageQueue = {} -- value = {url,body,attempts, lastSent}
 
-AddWebhookCall = function (webhookUrl,body)
+MakeWebhookCall_ = function (webhookUrl,body)
 
     --InLuaWorker.LogInfo("TrySendToWebhook started: " .. webhookUrl .." " .. body) 
 
 	local source = ltn12.source.string(body)
 
-    local T, code, headers, status =  https.request({url = webhookUrl,
-        method = "POST",
-        headers={["Content-Type"] = "application/json",
-                ["Content-Length"] = string.len(body)},
-		source = source})
+    local T, code, headers, status =  
+    https.request({ url = webhookUrl,
+                    method = "POST",
+                    headers={["Content-Type"] = "application/json",
+                             ["Content-Length"] = string.len(body)},
+                    source = source})
 
 
     if T == nil or code == nil or code < 200 or code >= 300 then
@@ -40,6 +41,17 @@ AddWebhookCall = function (webhookUrl,body)
     end
 
 	return true
+end
+
+CallAndRetry = function (webhookUrl,body)
+
+    local delay  = 1000
+
+    for i = 1,5 do 
+        if MakeWebhookCall_(webhookUrl,body) then break end
+        InLuaWorker.YieldFor(delay)
+        delay = delay * 2
+    end
 end
 
 InLuaWorker.LogInfo("DiscordLink_worker_init.lua run.")

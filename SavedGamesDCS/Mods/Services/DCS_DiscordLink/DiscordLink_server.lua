@@ -110,6 +110,15 @@ end
 --[[------------------------------------------
 		Convert lua object to string
 --]]------------------------------------------
+
+DiscordLink.escapeLuaString = function (str) 
+	return 
+	string.gsub(string.gsub(string.gsub(string.gsub(str,"\\","\\\\")
+														,"\"","\\\"")
+														,"\n","\\\n")
+														, "\r","\\\r")
+end
+
 DiscordLink.obj2str = function(obj, antiCirc,maxdepth)
 
 	if maxdepth == nil then 
@@ -132,24 +141,23 @@ DiscordLink.obj2str = function(obj, antiCirc,maxdepth)
 	local t = type(obj)
 
 	if t == 'table' then
-		antiCirc[#antiCirc+1] = obj
+		antiCirc[obj] = true
+
 		msg = msg..'{'
 		for k,v in pairs(obj) do
 			local t = type(v)
 			local dup = false
 
-			for _,prevObj in ipairs(antiCirc) do
-				if prevObj == v then
-					dup = true
-					break
-				end
-			end
+			dup = antiCirc[v] == true or antiCirc[k] == true
+
 			if dup == false then
-				msg = msg..obj2str(k,antiCirc,maxdepth -1)..':'..obj2str(v,antiCirc,maxdepth-1)..', '
+				msg = msg .. "[" .. obj2str(k,antiCirc,maxdepth -1)..']='..obj2str(v,antiCirc,maxdepth-1) .. ","
 			end
 		end
-		msg = msg..'}'pushLookup
-	elseif t == 'number' or t == 'string' then
+		msg = msg..'}'
+	elseif t == 'string' then
+		msg = msg.."\"".. DiscordLink.escapeLuaString(obj) .."\""
+	elseif t == 'number' then
 		msg = msg..obj
 	elseif t == 'boolean' then
 		if t then
@@ -157,11 +165,69 @@ DiscordLink.obj2str = function(obj, antiCirc,maxdepth)
 		else
 			msg = msg..'false'
 		end
-	elseif t then
-		msg = msg..t
 	end
 	return msg
 end
+
+-- DiscordLink.obj2strJson = function(obj, antiCirc,maxdepth, dblEscape)
+
+-- 	if maxdepth == nil then 
+-- 		maxdepth = 4 
+-- 	end
+
+-- 	if antiCirc == nil then 
+-- 		antiCirc = {}
+-- 	end
+
+-- 	if maxdepth<=0 then
+-- 		return "#"
+-- 	end
+
+-- 	if obj == nil then 
+-- 		return '??'
+-- 	end
+
+-- 	local quoteChar = '"'
+-- 	if dblEscape then 
+-- 		quoteChar = '\\"'
+-- 	end
+
+-- 	local msg = ''
+-- 	local t = type(obj)
+
+-- 	if t == 'table' then
+-- 		antiCirc[obj] = true
+-- 		local first = true
+
+-- 		msg = msg..'{'
+-- 		for k,v in pairs(obj) do
+-- 			local t = type(v)
+-- 			local dup = false
+
+-- 			dup = antiCirc[v] == true or antiCirc[k] == true
+
+-- 			if dup == false then
+-- 				if first then
+-- 					msg = msg..', '
+-- 					first  = false
+-- 				end
+-- 				msg = msg..obj2str(k,antiCirc,maxdepth -1)..':'..obj2str(v,antiCirc,maxdepth-1)
+-- 			end
+-- 		end
+-- 		msg = msg..'}'
+-- 	elseif t == 'string' then
+-- 		msg = msg.."\"".. string.gsub(string.gsub(obj,"\\","\\\\"),"\"","\\\"") .."\""
+-- 	elseif t == 'number' then
+-- 		msg = msg..obj
+-- 	elseif t == 'boolean' then
+-- 		if t then
+-- 			msg = msg..'true'
+-- 		else
+-- 			msg = msg..'false'
+-- 		end
+-- 	end
+-- 	return msg
+-- end
 
 --[[------------------------------------------
 		Load config from file
@@ -504,29 +570,7 @@ DiscordLink.trySendToWebhook = function (webhook,username,content)
 
 	DiscordLink.EnsureLuaWorker()
 
-	-- DiscordLink.log("Body" .. body)
-	-- local source = ltn12.source.string(body)
-
-	-- DiscordLink.log("SourceCreated")
-
-    -- local T, code, headers, status =  https.request({url = webhookUrl,
-    --     method = "POST",
-    --     headers={["Content-Type"] = "application/json",
-    --             ["Content-Length"] = string.len(body)},
-	-- 	source = source})
-
-
-    -- if T == nil or code == nil or code < 200 or code >= 300 then
-    --     if code == nil then code = "??" end
-    --     DiscordLink.log("Failed to Call Discord. Http Status: " .. code)
-	-- 	return false
-    -- end
-
-	if DiscordLink.lastTask then
-		DiscordLink.log({DiscordLink.lastStatus,DiscordLink.lastTask:Status()})
-	end
-	_, DiscordLink.lastTask = DiscordLink.worker:DoString([[trySendToWebhook(']] .. webhookUrl .. "',[[".. body .."]])")
-	DiscordLink.lastStatus = DiscordLink.lastTask:Status()
+	DiscordLink.worker:DoCoroutine([[CallAndRetry]], DiscordLink.escapeLuaString(webhookUrl),DiscordLink.escapeLuaString(body))
 
 	return true
 end
