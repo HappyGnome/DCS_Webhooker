@@ -1,1 +1,1 @@
-DiscordLink.addTemplate("example","default","ExampleBot",[[Hello from template]])
+DiscordLink.Server.addTemplate("example","default","ExampleBot",[[Hello from template]])
