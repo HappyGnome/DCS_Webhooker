@@ -10,14 +10,11 @@ package.path = package.path .. [[;]] .. lfs.writedir() .. [[Mods\Services\DCS_Di
 require("DiscordLink_serialization")
 require("DiscordLink_logging")
 
---TODO DEBUG
-dofile(lfs.writedir() .. [[Mods\Services\DCS_DiscordLink\DiscordLink_serialization.lua]])
-
 if DiscordLink == nil then
 	DiscordLink = {}
 elseif  DiscordLink.Handlers ~= nil then
-	for k,v in pairs(DiscordLink.Handlers) do -- Set event handlers to nil
-		DiscordLink[k] = nil
+	for k,v in pairs(DiscordLink.Handlers) do -- Set event handlers to nil when re-including
+		DiscordLink.Handlers[k] = nil
 	end
 end
 
@@ -27,9 +24,7 @@ DiscordLink.Server = {
 		directory = lfs.writedir()..[[Logs\]],
 		channelEnv = "DcsDiscordLinkWebhooks",
 		userFlagRoot = "DiscordLink_",
-		retrySendSeconds = 10,
 		framesPerPoll = 600,
-		maxMessagePopPerFrame = 20,
 		maxArgsPerTemplate = 20
 	},
 
@@ -41,6 +36,8 @@ DiscordLink.Server = {
 	players = {},
 	funcs = {},
 	nextMsgPartId = 1,
+	nextMsgIndexToCheck = 0,
+	popAgainNextFrame = false,
 	worker = nil,
 
 	 -- key = msgPartCat. value = {key = handle, value = id}
@@ -78,7 +75,7 @@ DiscordLink.safeCall(
 --[[------------------------------------------
 		Load config from file
 --]]------------------------------------------
-function DiscordLink.loadConfiguration()
+function DiscordLink.Server.loadConfiguration()
     DiscordLink.Logging.log("Config load starting")
 	
     local cfg = tools.safeDoFile(lfs.writedir() .. 'Config/DiscordLink.lua', false)
@@ -91,13 +88,13 @@ function DiscordLink.loadConfiguration()
 		end        
     end
 	
-	DiscordLink.saveConfiguration()
+	DiscordLink.Server.saveConfiguration()
 end
 
 --[[------------------------------------------
 		Write current config to file
 --]]------------------------------------------
-function DiscordLink.saveConfiguration()
+function DiscordLink.Server.saveConfiguration()
     U.saveInFile(DiscordLink.Server.config, 'config', lfs.writedir()..'Config/DiscordLink.lua')
 end
 
@@ -207,7 +204,7 @@ DiscordLink.Server.pushLookup = function()
 		a_do_script(
 		[=[ -- Executed in mission scripting environment
 			if DiscordLink == nil then DiscordLink = {} end 
-			DiscordLink.Server.msgPartLookup = 
+			DiscordLink.msgPartLookup =
 	]]
 
 	execString = execString .. DiscordLink.Serialization.obj2str(DiscordLink.Server.msgPartLookup)
@@ -215,7 +212,7 @@ DiscordLink.Server.pushLookup = function()
 	execString = execString .. [[]=])]]
 
 	DiscordLink.Logging.log(execString)
-	net.dostring_in(DiscordLink.scrEnvMission, execString)
+	net.dostring_in(DiscordLink.Server.scrEnvMission, execString)
 	DiscordLink.Logging.log("All lookup pushed")
 end
 
@@ -229,7 +226,7 @@ DiscordLink.Server.pushLookupPart = function(msgPartCat)
 		a_do_script(
 		[=[ -- Executed in mission scripting environment
 			if DiscordLink == nil then DiscordLink = {} end 
-			DiscordLink.Server.msgPartLookup["]] .. msgPartCat .. [["] = 
+			DiscordLink.msgPartLookup["]] .. msgPartCat .. [["] = 
 	]]
 
 	execString = execString .. DiscordLink.Serialization.obj2str(DiscordLink.Server.msgPartLookup[msgPartCat])
@@ -237,7 +234,7 @@ DiscordLink.Server.pushLookupPart = function(msgPartCat)
 	execString = execString .. [[]=])]]
 
 	DiscordLink.Logging.log(execString)
-	net.dostring_in(DiscordLink.scrEnvMission, execString)
+	net.dostring_in(DiscordLink.Server.scrEnvMission, execString)
 	DiscordLink.Logging.log(msgPartCat .. " lookup pushed")
 end
 
@@ -250,7 +247,7 @@ DiscordLink.Server.pushConfig = function()
 		a_do_script(
 		[=[ -- Executed in mission scripting environment
 			if DiscordLink == nil then DiscordLink = {} end 
-			DiscordLink.Server.config = 
+			DiscordLink.config = 
 	]]
 
 	execString = execString .. DiscordLink.Serialization.obj2str(DiscordLink.Server.config)
@@ -258,7 +255,7 @@ DiscordLink.Server.pushConfig = function()
 	execString = execString .. [[]=])]]
 
 	DiscordLink.Logging.log(execString)
-	net.dostring_in(DiscordLink.scrEnvMission, execString)
+	net.dostring_in(DiscordLink.Server.scrEnvMission, execString)
 	DiscordLink.Logging.log("Config pushed")
 end
 
@@ -269,53 +266,57 @@ end
 		Pop messages from mission scripting
 		environment, and send
 --]]------------------------------------------
-DiscordLink.Server.popMessages = function()
-	local i = 1
-	while i < DiscordLink.Server.config.maxMessagePopPerFrame do
-		local userFlag = DiscordLink.Server.config.userFlagRoot..i
-		local execString = 
+DiscordLink.Server.popMessage = function()
+
+	DiscordLink.Server.nextMsgIndexToCheck = DiscordLink.Server.nextMsgIndexToCheck + 1
+
+	local userFlag = DiscordLink.Server.config.userFlagRoot..DiscordLink.Server.nextMsgIndexToCheck
+	local execString = 
+	[[
+		-- Executed in server mission scripting environment
+		return(trigger.misc.getUserFlag("]]..userFlag..[["))
+	]]
+
+	DiscordLink.Logging.log("TODO pop message: " .. userFlag)
+
+	local flagValRaw = net.dostring_in(DiscordLink.Server.scrEnvServer, execString)
+
+	local flagVal = tonumber(flagValRaw)
+
+	DiscordLink.Logging.log("exec Done" .. flagValRaw) -- TODO
+
+	if flagVal == nil or flagVal == 0 then -- 0 used for boolean false (end of messages)
+		DiscordLink.Server.nextMsgIndexToCheck = 0
+		return
+	elseif flagVal ~= 1 then -- 1 used for boolean true (skip message)
+
+		local templateKey = DiscordLink.Server.msgPartRevLookup[flagVal]
+
+		if templateKey ~= nil and templateKey[1] == DiscordLink.Server.msgPartCat.template then
+			return	{
+				template = templateKey[2], 
+				args = DiscordLink.Server.popMessageRecurse(userFlag,1)
+			}
+		else
+			DiscordLink.Logging.log("Invalid template handle: " .. flagVal)
+		end
+	
+		-- clear flag
+		execString = 
 		[[
 			-- Executed in server mission scripting environment
-			return(trigger.misc.getUserFlag("]]..userFlag..[["))
+			trigger.action.setUserFlag("]]..userFlag..[[",true)
 		]]
 	
-		local flagValRaw = net.dostring_in(DiscordLink.scrEnvServer, execString)
-		--DiscordLink.Logging.log({result, type(result)})
-
-		local flagVal = tonumber(flagValRaw)
-		if flagVal == nil or flagVal == 0 then -- 0 used for boolean false (end of messages)
-			break 
-		elseif flagVal ~= 1 then -- 1 used for boolean true (skip message)
-
-			local templateKey = DiscordLink.Server.msgPartRevLookup[flagVal]
-
-			if templateKey ~= nil and templateKey[1] == DiscordLink.Server.msgPartCat.template then
-				DiscordLink.Server.msgQueue[#DiscordLink.Server.msgQueue + 1] = {
-					template = templateKey[2], 
-					args = DiscordLink.Server.popMessagesRecurse(userFlag,1)
-				}
-			else
-				DiscordLink.Logging.log("Invalid template handle: " .. flagVal)
-			end
-		
-			-- clear flag
-			execString = 
-			[[
-				-- Executed in server mission scripting environment
-				trigger.action.setUserFlag("]]..userFlag..[[",true)
-			]]
-		
-			net.dostring_in(DiscordLink.scrEnvServer, execString)
-		end
-
-		i = i + 1
+		net.dostring_in(DiscordLink.Server.scrEnvServer, execString)
 	end
+
 end
 
 --[[------------------------------------------
 		Pop message arguments
 --]]------------------------------------------
-DiscordLink.Server.popMessagesRecurse = function(userFlagRoot,recurseLevel)
+DiscordLink.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 	local ret = nil
 	if recurseLevel > 4 then return ret end
 
@@ -329,7 +330,7 @@ DiscordLink.Server.popMessagesRecurse = function(userFlagRoot,recurseLevel)
 			return(trigger.misc.getUserFlag("]]..userFlag..[["))
 		]]
 	
-		local flagRaw = net.dostring_in(DiscordLink.scrEnvServer, execString)
+		local flagRaw = net.dostring_in(DiscordLink.Server.scrEnvServer, execString)
 
 		local flagVal = tonumber(flagRaw)
 		if flagVal == nil or flagVal == 0  or flagVal == 1 then 
@@ -340,7 +341,7 @@ DiscordLink.Server.popMessagesRecurse = function(userFlagRoot,recurseLevel)
 		
 		if not ret then ret = {} end
 
-		local args = DiscordLink.Server.popMessagesRecurse(userFlag,recurseLevel+1)
+		local args = DiscordLink.Server.popMessageRecurse(userFlag,recurseLevel+1)
 		ret[#ret + 1] = {
 			handle = flagVal,
 			args = args
@@ -353,7 +354,7 @@ DiscordLink.Server.popMessagesRecurse = function(userFlagRoot,recurseLevel)
 			trigger.action.setUserFlag("]]..userFlag..[[",true)
 		]]
 
-		net.dostring_in(DiscordLink.scrEnvServer, execString)
+		net.dostring_in(DiscordLink.Server.scrEnvServer, execString)
 
 		i = i + 1
 	end
@@ -380,7 +381,7 @@ DiscordLink.Server.trySendToWebhook = function (webhook,username,templateRaw, te
 		DiscordLink.Logging.log("Missing template for call to webhook "..webhook)
         return false
     end
-	DiscordLink.Server.EnsureLuaWorker()
+	DiscordLink.Server.ensureLuaWorker()
 
 	DiscordLink.Server.worker:DoCoroutine(
 		[[DiscordLink.Worker.CallAndRetry]], 
@@ -395,31 +396,36 @@ DiscordLink.Server.trySendToWebhook = function (webhook,username,templateRaw, te
 end
 
 --[[------------------------------------------
-		popAndSendAll
+		popAndSendOne
 --]]------------------------------------------
-DiscordLink.Server.popAndSendAll = function ()
-    DiscordLink.Server.popMessages()
+DiscordLink.Server.popAndSendOne = function ()
 
-	for k,msgData in pairs(DiscordLink.Server.msgQueue) do
+    local msgData = DiscordLink.Server.popMessage()
 
-		local template = DiscordLink.Server.templates[msgData.template]
+	if msgData == nil then return false end
 
-		if template == nil then
-			DiscordLink.Logging.log("Template not found: " .. template)
-			return false
-		end 
-
-		local templateArgs = {}
-
-		if msgData.args ~= nil then
-			for i,arg in ipairs(msgData.args) do
-				templateArgs[i] = DiscordLink.Server.msgArgToString(arg.handle, arg.args) 
-			end
-		end
-
-		DiscordLink.Server.trySendToWebhook(template.webhookKey,template.username, template.content, templateArgs)
-
+	if DiscordLink.Server.nextMsgIndexToCheck > 0 then
+		DiscordLink.Server.popAgainNextFrame = true
 	end
+
+	local template = DiscordLink.Server.templates[msgData.template]
+
+	if template == nil then
+		DiscordLink.Logging.log("Template not found: " .. template)
+		return false
+	end 
+
+	local templateArgs = {}
+
+	if msgData.args ~= nil then
+		for i,arg in ipairs(msgData.args) do
+			templateArgs[i] = DiscordLink.Server.msgArgToString(arg.handle, arg.args) 
+		end
+	end
+
+	DiscordLink.Server.trySendToWebhook(template.webhookKey,template.username, template.content, templateArgs)
+
+	
 end
 
 --[[------------------------------------------
@@ -454,7 +460,7 @@ end
 		Start lua worker thread if it's 
 		not running/starting
 --]]------------------------------------------
-DiscordLink.Server.EnsureLuaWorker = function()
+DiscordLink.Server.ensureLuaWorker = function()
 
 	if DiscordLink.Server.worker ~= nil then
 		local status = DiscordLink.Server.worker:Status()
@@ -496,7 +502,7 @@ end
 		doOnMissionLoadBegin
 --]]------------------------------------------
 DiscordLink.Handlers.doOnMissionLoadBegin = function()
-	DiscordLink.loadConfiguration()
+	DiscordLink.Server.loadConfiguration()
 	local log_file_name = 'DCS_DiscordLink.Logging.log'
 	
 	local fulldir = DiscordLink.Server.config.directory.."\\"
@@ -527,7 +533,7 @@ end
 --]]------------------------------------------
 DiscordLink.Handlers.onPlayerConnect = function(id)
 	--if not DCS.isServer() or not DCS.isMultiplayer() then return end
-	DiscordLink.safeCall(DiscordLink.Handlers.doOnPlayerConnect,{id})
+	DiscordLink.safeCall(DiscordLink.Handlers.doOnPlayerConnect,id)
 end
 
 --[[------------------------------------------
@@ -593,23 +599,28 @@ DiscordLink.Handlers.doOnSimulationStart = function()
 	DiscordLink.Server.pushLookup()
 	DiscordLink.Logging.log(net.get_player_list())
 
-	DiscordLink.Server.EnsureLuaWorker()
+	DiscordLink.Server.ensureLuaWorker()
 end
 
 --[[------------------------------------------
 		onSimulationFrame
 --]]------------------------------------------
 DiscordLink.Handlers.onSimulationFrame = function()
-	if DiscordLink.Server.pollFrameTime > DiscordLink.Server.config.framesPerPoll then
+	if DiscordLink.Server.pollFrameTime > DiscordLink.Server.config.framesPerPoll 
+		or DiscordLink.Server.popAgainNextFrame then
 		--if not DCS.isServer() or not DCS.isMultiplayer() then return end -- TODO Test
-		--DiscordLink.Logging.log("TODO poll")
 
-		DiscordLink.Server.pollFrameTime = 0
+		if DiscordLink.Server.pollFrameTime > DiscordLink.Server.config.framesPerPoll then
+			DiscordLink.Server.pollFrameTime = 0
+		end
 		
-		DiscordLink.safeCall(DiscordLink.Server.popAndSendAll)
+		DiscordLink.Server.popAgainNextFrame = false
+
+		DiscordLink.safeCall(DiscordLink.Server.popAndSendOne)
 
 		return
-	elseif DiscordLink.Server.pollFrameTime == 111 and DiscordLink.Server.worker ~= nil then -- Spread work between frames (avoid round numbers)
+	elseif DiscordLink.Server.pollFrameTime == 111 and DiscordLink.Server.worker ~= nil then 
+		-- Spread work between frames (avoid round numbers)
 		for i = 1,100 do
 			local s = DiscordLink.Server.worker:PopLogLine() 
 			if s == nil then break end
