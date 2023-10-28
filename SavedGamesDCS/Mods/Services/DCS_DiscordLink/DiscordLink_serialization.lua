@@ -106,9 +106,9 @@ DiscordLink.Serialization.obj2json = function(obj, antiCirc,maxdepth)
 				if not antiCirc[v] then
 					if not first then 
 						msg = msg .. ","
-						first = false
 					end
 					msg = msg .. DiscordLink.Serialization.obj2json(v,antiCirc,maxdepth-1)
+					first = false
 				end
 			end					
 			msg = msg..']'
@@ -122,9 +122,9 @@ DiscordLink.Serialization.obj2json = function(obj, antiCirc,maxdepth)
 					if not antiCirc[v] then
 						if not first then 
 							msg = msg .. ","
-							first = false
 						end
 						msg = msg .. "\"".. DiscordLink.Serialization.escapeLuaString(k) .."\":" .. DiscordLink.Serialization.obj2json(v,antiCirc,maxdepth-1)
+						first = false						
 					end
 				end
 			end					

@@ -33,6 +33,9 @@ DiscordLink.Worker.makeMsgContent = function (rawTemplate,subStrings)
 	InLuaWorker.LogInfo("Formatting message " .. DiscordLink.Serialization.obj2str({rawTemplate,subStrings}))
 
 	local finalText = ""
+	
+	if rawTemplate == nil then return finalText end
+
 	local at = 1
 	local atEnd = string.len(rawTemplate)
 	while at <= atEnd do
@@ -59,7 +62,11 @@ DiscordLink.Worker.makeMsgContent = function (rawTemplate,subStrings)
 				at = foundEnd + 1
 			end
 
-			local substring = subStrings[tonumber(tok)]
+			local substring = nil
+			if subStrings ~= nil then 
+				substring = subStrings[tonumber(tok)]
+			end
+
 			if substring == nil then
 				substring = ""
 				-- DiscordLink.log("Substring not found for  \"" .. tok .. "\"")
@@ -73,11 +80,9 @@ end
 --------------------------------------------------------------
 -- SENDING METHODS
 
-MessageQueue = {} -- value = {url,body,attempts, lastSent}
-
 DiscordLink.Worker.MakeWebhookCall_ = function (webhookUrl,body)
 
-    InLuaWorker.LogInfo("TrySendToWebhook started: " .. webhookUrl .." " .. body) 
+    InLuaWorker.LogInfo("MakeWebhookCall_ started. Body: " .. body) 
 
 	local source = ltn12.source.string(body)
 
@@ -106,28 +111,28 @@ DiscordLink.Worker.CallAndRetry = function (msgData)
         InLuaWorker.LogError("Missing msgData") 
     end
     
-    if msgData.username == nil then
+    if msgData.username == nil or msgData.username == "" then
         InLuaWorker.LogError("Missing msgData.username") 
     end
     
-    if msgData.webhook == nil then
+    if msgData.webhook == nil or msgData.webhook == "" then
         InLuaWorker.LogError("Missing msgData.webhook") 
     end
     
-    if msgData.templateRaw == nil then
+    if msgData.templateRaw == nil or msgData.templateRaw == "" then
         InLuaWorker.LogError("Missing msgData.templateRaw") 
     end
 
 
     local bodyRaw = {
         username = msgData.username,
-        content = DiscordLink.Worker.makeMsgContent(templateRaw,templateArgs)
+        content = DiscordLink.Worker.makeMsgContent(msgData.templateRaw,msgData.templateArgs)
     }
 
     local body= DiscordLink.Serialization.obj2json(bodyRaw)
 
     for i = 1,5 do 
-        if MakeWebhookCall_(msgData.webhook,body) then break end
+        if DiscordLink.Worker.MakeWebhookCall_(msgData.webhook,body) then break end
         InLuaWorker.YieldFor(delay)
         delay = delay * 2
     end

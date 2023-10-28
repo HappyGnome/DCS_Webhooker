@@ -1,7 +1,7 @@
 
 # INTRODUCTION
 
-The aim of DCS_DiscordLink is to allow DCS (servers) to post messages to discord from the mission environment.
+The aim of DCS_DiscordLink is to allow DCS (servers) to post messages to Discord from the mission environment.
 This project is in the prototyping stage. Final capabilities TBC.
 
 # INSTALLATION

@@ -270,6 +270,8 @@ DiscordLink.Server.popMessage = function()
 
 	DiscordLink.Server.nextMsgIndexToCheck = DiscordLink.Server.nextMsgIndexToCheck + 1
 
+	local ret = nil
+
 	local userFlag = DiscordLink.Server.config.userFlagRoot..DiscordLink.Server.nextMsgIndexToCheck
 	local execString = 
 	[[
@@ -277,13 +279,9 @@ DiscordLink.Server.popMessage = function()
 		return(trigger.misc.getUserFlag("]]..userFlag..[["))
 	]]
 
-	DiscordLink.Logging.log("TODO pop message: " .. userFlag)
-
 	local flagValRaw = net.dostring_in(DiscordLink.Server.scrEnvServer, execString)
 
 	local flagVal = tonumber(flagValRaw)
-
-	DiscordLink.Logging.log("exec Done" .. flagValRaw) -- TODO
 
 	if flagVal == nil or flagVal == 0 then -- 0 used for boolean false (end of messages)
 		DiscordLink.Server.nextMsgIndexToCheck = 0
@@ -293,7 +291,7 @@ DiscordLink.Server.popMessage = function()
 		local templateKey = DiscordLink.Server.msgPartRevLookup[flagVal]
 
 		if templateKey ~= nil and templateKey[1] == DiscordLink.Server.msgPartCat.template then
-			return	{
+			ret =	{
 				template = templateKey[2], 
 				args = DiscordLink.Server.popMessageRecurse(userFlag,1)
 			}
@@ -310,6 +308,8 @@ DiscordLink.Server.popMessage = function()
 	
 		net.dostring_in(DiscordLink.Server.scrEnvServer, execString)
 	end
+
+	return ret
 
 end
 
