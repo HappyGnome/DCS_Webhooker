@@ -1,25 +1,25 @@
-require("DiscordLink_serialization")
+require("Webhooker_serialization")
 
 local string = require("string")
 local os = require("os")
 local lfs= require("lfs")
 
-if DiscordLink == nil then
-    DiscordLink = {}
+if Webhooker == nil then
+    Webhooker = {}
 end
 
-DiscordLink.Logging =
+Webhooker.Logging =
 {
-  logFile = io.open(lfs.writedir()..[[Logs\DCS_DiscordLink.log]], "w")
+  logFile = io.open(lfs.writedir()..[[Logs\DCS_Webhooker.log]], "w")
 }
 
-DiscordLink.Logging.log = function(str, logFile, prefix)
+Webhooker.Logging.log = function(str, logFile, prefix)
   if not str and not prefix then 
       return
   end
 
   if not logFile then
-    logFile = DiscordLink.Logging.logFile
+    logFile = Webhooker.Logging.logFile
   end
 
   if logFile then
@@ -30,7 +30,7 @@ DiscordLink.Logging.log = function(str, logFile, prefix)
       msg = msg..'{'
       for k,v in pairs(str) do
         local t = type(v)
-        msg = msg..k..':'.. DiscordLink.Serialization.obj2str(v)..', '
+        msg = msg..k..':'.. Webhooker.Serialization.obj2str(v)..', '
       end
       msg = msg..'}'
     else
@@ -43,11 +43,11 @@ DiscordLink.Logging.log = function(str, logFile, prefix)
 end
 
 --error handler for xpcalls
-DiscordLink.Logging.catchError=function(err)
-	DiscordLink.Logging.log(err)
+Webhooker.Logging.catchError=function(err)
+	Webhooker.Logging.log(err)
 end 
 
-DiscordLink.safeCall = function(func,...)
+Webhooker.safeCall = function(func,...)
 	local op = func
 	if arg then 
 		op = function()
@@ -55,5 +55,5 @@ DiscordLink.safeCall = function(func,...)
 		end
 	end
 	
-	xpcall(op,DiscordLink.Logging.catchError)
+	xpcall(op,Webhooker.Logging.catchError)
 end

@@ -1,7 +1,7 @@
 
 # INTRODUCTION
 
-The aim of DCS_DiscordLink is to allow DCS (servers) to post messages to Discord from the mission environment.
+The aim of DCS_Webhooker is to allow DCS (servers) to post messages to Discord from the mission environment.
 This project is in the prototyping stage. Final capabilities TBC.
 
 # INSTALLATION
@@ -9,7 +9,7 @@ This project is in the prototyping stage. Final capabilities TBC.
 ## Server
 
 ### Saved games
-Copy the contents of the `SavedGamesDCS` folder into your DCS saved games folder. If done correctly then E.g. `.\SavedGamesDCS\Scripts\Hooks\DCS_DiscordLink.lua` will be copied to `C:\Users\<username>\SavedGames\DCS\Scripts\Hooks\DCS_DiscordLink.lua` (system dependent).
+Copy the contents of the `SavedGamesDCS` folder into your DCS saved games folder. If done correctly then E.g. `.\SavedGamesDCS\Scripts\Hooks\DCS_Webhooker.lua` will be copied to `C:\Users\<username>\SavedGames\DCS\Scripts\Hooks\DCS_Webhooker.lua` (system dependent).
 
 ### Environment variables
 Discord webhook URLs may need to be added to the environment on the server. Details TBC.
@@ -19,7 +19,7 @@ Discord webhook URLs may need to be added to the environment on the server. Deta
 
 # DEPENDENCIES
 
-DCS_DiscordLink depends upon [luasec](https://github.com/brunoos/luasec), and its dependency [openssl](https://github.com/openssl/openssl).
+DCS_Webhooker depends upon [luasec](https://github.com/brunoos/luasec), and its dependency [openssl](https://github.com/openssl/openssl).
 
 ## Building ssl.dll
 The included ssl.dll binary was created as follows

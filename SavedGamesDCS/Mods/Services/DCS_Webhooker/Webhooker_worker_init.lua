@@ -1,5 +1,5 @@
 
-InLuaWorker.LogInfo("DiscordLink_worker_init.lua Starting.")
+InLuaWorker.LogInfo("Webhooker_worker_init.lua Starting.")
 --InLuaWorker.LogInfo("scriptRoot set to " .. scriptRoot)
 
 --package.cpath = package.cpath..";"..scriptRoot..[[\https\?.dll;]]
@@ -15,22 +15,22 @@ require("url") -- defines socket.url, which socket.http looks for
 http = require("http") -- socket.http
 local https = require("https")
 
-require("DiscordLink_serialization")
+require("Webhooker_serialization")
 
-if DiscordLink == nil then
-    DiscordLink = {}
+if Webhooker == nil then
+    Webhooker = {}
 end
 
-DiscordLink.Worker = {}
+Webhooker.Worker = {}
 --------------------------------------------------------------
 -- Message formatting
 --[[------------------------------------------
 		Replace placeholders in template
 		to generate webhook body
 --]]------------------------------------------
-DiscordLink.Worker.makeMsgContent = function (rawTemplate,subStrings)
+Webhooker.Worker.makeMsgContent = function (rawTemplate,subStrings)
 
-	InLuaWorker.LogInfo("Formatting message " .. DiscordLink.Serialization.obj2str({rawTemplate,subStrings}))
+	InLuaWorker.LogInfo("Formatting message " .. Webhooker.Serialization.obj2str({rawTemplate,subStrings}))
 
 	local finalText = ""
 	
@@ -69,7 +69,7 @@ DiscordLink.Worker.makeMsgContent = function (rawTemplate,subStrings)
 
 			if substring == nil then
 				substring = ""
-				-- DiscordLink.log("Substring not found for  \"" .. tok .. "\"")
+				-- Webhooker.log("Substring not found for  \"" .. tok .. "\"")
 				return nil
 			end
 			finalText = finalText .. substring 
@@ -80,7 +80,7 @@ end
 --------------------------------------------------------------
 -- SENDING METHODS
 
-DiscordLink.Worker.MakeWebhookCall_ = function (webhookUrl,body)
+Webhooker.Worker.MakeWebhookCall_ = function (webhookUrl,body)
 
     InLuaWorker.LogInfo("MakeWebhookCall_ started. Body: " .. body) 
 
@@ -103,16 +103,12 @@ DiscordLink.Worker.MakeWebhookCall_ = function (webhookUrl,body)
 	return true
 end
 
-DiscordLink.Worker.CallAndRetry = function (msgData)
+Webhooker.Worker.CallAndRetry = function (msgData)
 
     local delay  = 1000
 
     if msgData == nil then
         InLuaWorker.LogError("Missing msgData") 
-    end
-    
-    if msgData.username == nil or msgData.username == "" then
-        InLuaWorker.LogError("Missing msgData.username") 
     end
     
     if msgData.webhook == nil or msgData.webhook == "" then
@@ -124,18 +120,13 @@ DiscordLink.Worker.CallAndRetry = function (msgData)
     end
 
 
-    local bodyRaw = {
-        username = msgData.username,
-        content = DiscordLink.Worker.makeMsgContent(msgData.templateRaw,msgData.templateArgs)
-    }
-
-    local body= DiscordLink.Serialization.obj2json(bodyRaw)
+    local body = Webhooker.Worker.makeMsgContent(msgData.templateRaw,msgData.templateArgs)
 
     for i = 1,5 do 
-        if DiscordLink.Worker.MakeWebhookCall_(msgData.webhook,body) then break end
+        if Webhooker.Worker.MakeWebhookCall_(msgData.webhook,body) then break end
         InLuaWorker.YieldFor(delay)
         delay = delay * 2
     end
 end
 
-InLuaWorker.LogInfo("DiscordLink_worker_init.lua run.")
+InLuaWorker.LogInfo("Webhooker_worker_init.lua run.")
