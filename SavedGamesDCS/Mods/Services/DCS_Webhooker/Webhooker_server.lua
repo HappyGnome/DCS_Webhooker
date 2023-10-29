@@ -22,8 +22,8 @@ Webhooker.Server = {
 	config = 
 	{
 		directory = lfs.writedir()..[[Logs\]],
-		channelEnv = "DcsWebhookerWebhooks",
-		userFlagRoot = "Webhooker_",
+		channelEnv = "DcsWebhookerUrls",
+		userFlagRoot = "Webhooker",
 		framesPerPoll = 600,
 		maxArgsPerTemplate = 20
 	},
@@ -41,16 +41,16 @@ Webhooker.Server = {
 	worker = nil,
 
 	 -- key = msgPartCat. value = {key = handle, value = id}
-	msgPartLookup = {template = {}, string = {}, player = {}, func = {}},
+	msgPartLookup = {templates = {}, strings = {}, players = {}, funcs = {}},
 
-	-- key = id, value = {msgPartCat,handle}
+	-- key = id, value = {table,handle} --e.g. table = Webhooker.Server.strings
 	msgPartRevLookup = {}, 
 	msgQueue = {},
 	msgRateEpoch = nil,
 	msgCountSinceEpoch = nil,
 
 	-- Module constants
-	msgPartCat = {template = 1, string = 2, player = 3, func = 4},
+	--msgPartCat = {template = 1, string = 2, player = 3, func = 4},
 	scriptRoot = lfs.writedir()..[[Mods\Services\DCS_Webhooker]],
 	scrEnvMission = "mission",
 	scrEnvServer = "server"
@@ -59,8 +59,9 @@ Webhooker.Server = {
  package.cpath = package.cpath..";"..Webhooker.Server.scriptRoot..[[\LuaWorker\?.dll;]]
  local LuaWorker = nil
 
---------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- LOAD C Modules
+--------------------------------------------------------------------------------------
 
 Webhooker.safeCall(
 	function()
@@ -68,12 +69,13 @@ Webhooker.safeCall(
 		net.log("Loaded LuaWorker")
 	end)
 
------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- CONFIG & UTILITY
+--------------------------------------------------------------------------------------
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Load config from file
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 function Webhooker.Server.loadConfiguration()
     Webhooker.Logging.log("Config load starting")
 	
@@ -90,57 +92,21 @@ function Webhooker.Server.loadConfiguration()
 	Webhooker.Server.saveConfiguration()
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Write current config to file
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 function Webhooker.Server.saveConfiguration()
     U.saveInFile(Webhooker.Server.config, 'config', lfs.writedir()..'Config/Webhooker.lua')
 end
 
---------------------------------------------------------------
--- DEFAULT FUNCTIONS
+--------------------------------------------------------------------------------------
+-- TEMPLATES AND EXTENSION API
+--------------------------------------------------------------------------------------
 
---[[------------------------------------------
-		Function to add integer to template
---]]------------------------------------------
-Webhooker.Server.formatInteger = function(pack)
-	--TODO tidy
-	return pack[1]
-end
-
---[[------------------------------------------
-		Add default functions that can be
-		called to populate message templates
---]]------------------------------------------
-Webhooker.Server.addDefaultFuncs = function()
-	local lookup = {}
-
-	Webhooker.Server.funcs.integer = Webhooker.Server.formatInteger
-
-	for k,v in pairs(Webhooker.Server.funcs) do
-
-		local revLookupEntry = {Webhooker.Server.msgPartCat.func,k}
-		local existingInd = Webhooker.Server.msgPartLookup.func[k]
-
-		if  existingInd == nil then
-			Webhooker.Server.msgPartRevLookup[Webhooker.Server.nextMsgPartId] = revLookupEntry
-			lookup[k] = Webhooker.Server.nextMsgPartId
-			Webhooker.Server.nextMsgPartId = Webhooker.Server.nextMsgPartId + 1
-		else
-			Webhooker.Server.msgPartRevLookup[existingInd] = revLookupEntry
-			lookup[k] = existingInd
-		end
-	end
-	Webhooker.Server.msgPartLookup.func = lookup
-end 
-
---------------------------------------------------------------
--- LOAD TEMPLATES
-
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Call this from messages scripts
 		to install templates
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.addTemplate=function(templateKey,webhookKey,bodyTemplate)
 	Webhooker.Server.templates[templateKey] = {
 		webhookKey = webhookKey,
@@ -148,10 +114,91 @@ Webhooker.Server.addTemplate=function(templateKey,webhookKey,bodyTemplate)
 	}
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
+		Call this from messages scripts
+		to install strings
+--]]----------------------------------------------------------------------------------
+Webhooker.Server.addString=function(stringKey,stringValue)
+	Webhooker.Server.strings[stringKey] = stringValue
+end
+
+--[[----------------------------------------------------------------------------------
+		Call this from messages scripts
+		to install functions
+--]]----------------------------------------------------------------------------------
+Webhooker.Server.addFunc=function(funcKey,funcValue)
+	Webhooker.Server.funcs[funcKey] = funcValue
+end
+
+--[[----------------------------------------------------------------------------------
+		Try to convert function or template argument to an integer
+		Noo lookups or function calls are performed
+--]]----------------------------------------------------------------------------------
+Webhooker.Server.argToNum = function (msgArg)
+
+	local handle = nil
+	local ret = nil
+
+	if type(msgArg) == 'number' then
+		return msgArg
+	elseif type(msgArg) == 'table' and type(msgArg[1]) == 'number' then
+		return msgArg.handle
+	else 
+		return nil
+	end
+end
+
+--[[----------------------------------------------------------------------------------
+		Try to convert function or template argument to a string, 
+		using lookup tables and calling functions
+--]]----------------------------------------------------------------------------------
+Webhooker.Server.argToString = function (msgArg)
+
+	local handle = nil
+	local innerArgs = nil
+	local ret = ""
+
+	if type(msgArg) == 'number' then
+		handle = msgArg
+	elseif type(msgArg) == 'table' then
+		handle = msgArg.handle
+		innerArgs = msgArg.args
+	else 
+		return ret
+	end
+
+	local handleVal = Webhooker.Server.msgPartRevLookup[handle]
+
+	if handleVal == nil or #handleVal < 2 or type(handleVal[1]) ~= 'table' then
+		Webhooker.Logging.log("Unrecognised message part handle: " .. handle)
+		return ret
+	end
+
+	if handleVal[1] == Webhooker.Server.funcs then
+		if type(innerArgs) == 'table' then
+			ret = Webhooker.Server.funcs[handleVal[2]](unpack(innerArgs))
+		else 
+			ret = Webhooker.Server.funcs[handleVal[2]]()
+		end		
+	else 
+		ret = handleVal[1][handleVal[2]]
+	end
+
+	if ret == nil then
+		return ""
+	else
+		return ret
+	end
+end
+
+--------------------------------------------------------------------------------------
+-- LOAD TEMPLATES AND EXTENSIONS
+--------------------------------------------------------------------------------------
+
+--[[----------------------------------------------------------------------------------
 		Run files from the messages subdir
 		to install webhook message templates
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.reloadTemplates = function()
 	Webhooker.Server.templates = {}
 	local messagesDir = Webhooker.Server.scriptRoot..[[\messages]]
@@ -169,38 +216,61 @@ Webhooker.Server.reloadTemplates = function()
 		end
 	end
 
-	local templateLookup = {}
-	for k,v in pairs(Webhooker.Server.templates) do
+	-- Rebuild template lookup
+	Webhooker.Server.buildLookupSection("templates")
 
-		local existingInd = Webhooker.Server.msgPartLookup.template[k]
-		local revLookupEntry = {Webhooker.Server.msgPartCat.template, k}
+	-- Rebuild string lookup
+	Webhooker.Server.buildLookupSection("strings")
+
+	-- Rebuild func lookup
+	Webhooker.Server.buildLookupSection("funcs")
+end
+
+Webhooker.Server.buildLookupSection = function (sectionName)
+	local newLookup = {}
+
+	local section = Webhooker.Server[sectionName]
+	local lookupSection = Webhooker.Server.msgPartLookup[sectionName]
+
+	if section == nil or lookupSection == nil then
+		Webhooker.Logging.log("Invalid section name: " .. sectionName)
+		return
+	end
+
+	for k,v in pairs(section) do
+
+		local existingInd = lookupSection[k]
+		local revLookupEntry = {section, k}
 
 		if  existingInd == nil then
 			Webhooker.Server.msgPartRevLookup[Webhooker.Server.nextMsgPartId] = revLookupEntry
-			templateLookup[k] = Webhooker.Server.nextMsgPartId
+			newLookup[k] = Webhooker.Server.nextMsgPartId
 			Webhooker.Server.nextMsgPartId = Webhooker.Server.nextMsgPartId + 1
 		else
 			Webhooker.Server.msgPartRevLookup[existingInd] = revLookupEntry
-			templateLookup[k] = existingInd
+			newLookup[k] = existingInd
 		end
 	end
-	Webhooker.Server.msgPartLookup.template = templateLookup
+	Webhooker.Server.msgPartLookup[sectionName] = newLookup --was lookupSection
 
-	Webhooker.Logging.log(Webhooker.Server.templates)
+	Webhooker.Logging.log(sectionName .." section rebuilt: ")
+	Webhooker.Logging.log(section)
 end
 
---------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- PUSH TO MISSION ENVIRONMENT ACTIONS
+--------------------------------------------------------------------------------------
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Push entire message part lookup
 		to mission environment
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.pushLookup = function()
 	local execString = 
 	[[
 		a_do_script(
-		[=[ -- Executed in mission scripting environment
+		[=[ 
+			-- Executed in mission scripting environment
 			if Webhooker == nil then Webhooker = {} end 
 			Webhooker.msgPartLookup =
 	]]
@@ -214,16 +284,23 @@ Webhooker.Server.pushLookup = function()
 	Webhooker.Logging.log("All lookup pushed")
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Push single message part category
 		to mission environment
---]]------------------------------------------
+
+		Args: 
+		msgPartCat - string, index into Webhooker.Server.msgPartLookup
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.pushLookupPart = function(msgPartCat)
 	local execString = 
 	[[
 		a_do_script(
-		[=[ -- Executed in mission scripting environment
-			if Webhooker == nil then Webhooker = {} end 
+		[=[ 
+			-- Executed in mission scripting environment
+
+			if Webhooker == nil then Webhooker = {} end
+			if Webhooker.msgPartLookup == nil then Webhooker.msgPartLookup = {} end
+
 			Webhooker.msgPartLookup["]] .. msgPartCat .. [["] = 
 	]]
 
@@ -231,19 +308,19 @@ Webhooker.Server.pushLookupPart = function(msgPartCat)
 
 	execString = execString .. [[]=])]]
 
-	Webhooker.Logging.log(execString)
 	net.dostring_in(Webhooker.Server.scrEnvMission, execString)
 	Webhooker.Logging.log(msgPartCat .. " lookup pushed")
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Push config to mission environment
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.pushConfig = function()
 	local execString = 
 	[[
 		a_do_script(
-		[=[ -- Executed in mission scripting environment
+		[=[ 
+			-- Executed in mission scripting environment
 			if Webhooker == nil then Webhooker = {} end 
 			Webhooker.config = 
 	]]
@@ -252,25 +329,25 @@ Webhooker.Server.pushConfig = function()
 
 	execString = execString .. [[]=])]]
 
-	Webhooker.Logging.log(execString)
 	net.dostring_in(Webhooker.Server.scrEnvMission, execString)
 	Webhooker.Logging.log("Config pushed")
 end
 
---------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- POP MESSAGES
+--------------------------------------------------------------------------------------
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Pop messages from mission scripting
 		environment, and send
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.popMessage = function()
 
 	Webhooker.Server.nextMsgIndexToCheck = Webhooker.Server.nextMsgIndexToCheck + 1
 
 	local ret = nil
 
-	local userFlag = Webhooker.Server.config.userFlagRoot..Webhooker.Server.nextMsgIndexToCheck
+	local userFlag = Webhooker.Server.config.userFlagRoot .. "_" ..Webhooker.Server.nextMsgIndexToCheck
 	local execString = 
 	[[
 		-- Executed in server mission scripting environment
@@ -286,10 +363,14 @@ Webhooker.Server.popMessage = function()
 		return
 	elseif flagVal ~= 1 then -- 1 used for boolean true (skip message)
 
+		if flagVal > 0 then
+			flagVal = flagVal - 2
+		end
+
 		local templateKey = Webhooker.Server.msgPartRevLookup[flagVal]
 
-		if templateKey ~= nil and templateKey[1] == Webhooker.Server.msgPartCat.template then
-			ret =	{
+		if templateKey ~= nil and templateKey[1] == Webhooker.Server.templates then
+			ret = {
 				template = templateKey[2], 
 				args = Webhooker.Server.popMessageRecurse(userFlag,1)
 			}
@@ -311,9 +392,9 @@ Webhooker.Server.popMessage = function()
 
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Pop message arguments
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 	local ret = nil
 	if recurseLevel > 4 then return ret end
@@ -331,19 +412,32 @@ Webhooker.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 		local flagRaw = net.dostring_in(Webhooker.Server.scrEnvServer, execString)
 
 		local flagVal = tonumber(flagRaw)
-		if flagVal == nil or flagVal == 0  or flagVal == 1 then 
+		local args = nil
+
+		if flagVal == nil or flagVal == 0 then 
 			break 
-		elseif flagVal > 0 then
+		elseif flagVal == 1  then
+			flagVal = nil
+		elseif flagVal > 1 then
 			flagVal = flagVal - 2
+			args = Webhooker.Server.popMessageRecurse(userFlag,recurseLevel+1)
 		end
 		
-		if not ret then ret = {} end
+		if not ret then ret = {} end 
 
-		local args = Webhooker.Server.popMessageRecurse(userFlag,recurseLevel+1)
-		ret[#ret + 1] = {
-			handle = flagVal,
-			args = args
-		}
+		if args == nil and flagVal ~= nil then
+			ret[#ret + 1] = flagVal
+		elseif args == nil then
+			ret[#ret + 1] = "NULL"
+		else
+			ret[#ret + 1] = {
+				handle = flagVal,
+				args = args
+			}
+		end
+
+		Webhooker.Logging.log("Popped: " .. userFlag)
+		Webhooker.Logging.log(ret)
 
 		-- clear flag
 		execString = 
@@ -361,12 +455,13 @@ Webhooker.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 end
 
 
---------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- MAIN LOOP LOGIC
+--------------------------------------------------------------------------------------
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Queue message in worker thread
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.trySendToWebhook = function (webhook,templateRaw, templateArgs)
 
     if Webhooker.Server.webhooks[webhook] == nil then
@@ -389,9 +484,9 @@ Webhooker.Server.trySendToWebhook = function (webhook,templateRaw, templateArgs)
 	return true
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		popAndSendOne
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.popAndSendOne = function ()
 
     local msgData = Webhooker.Server.popMessage()
@@ -413,47 +508,20 @@ Webhooker.Server.popAndSendOne = function ()
 
 	if msgData.args ~= nil then
 		for i,arg in ipairs(msgData.args) do
-			templateArgs[i] = Webhooker.Server.msgArgToString(arg.handle, arg.args) 
+			templateArgs[i] = Webhooker.Server.argToString(arg) 
 		end
 	end
 
 	Webhooker.Server.trySendToWebhook(template.webhookKey,template.bodyRaw, templateArgs)
 
-	
-end
-
---[[------------------------------------------
-		Convert message arg pack to 
-		replacement string
---]]------------------------------------------
-Webhooker.Server.msgArgToString = function (handle, msgArg)
-
-	local handleVal = Webhooker.Server.msgPartRevLookup[handle]
-
-	if handleVal == nil or #handleVal < 2 then
-		Webhooker.Logging.log("Unrecognised message part handle: " .. handle)
-		return nil
-	end
-
-	if handleVal[1] == Webhooker.Server.msgPartCat.string then
-		return Webhooker.strings[handleVal[2]]
-	elseif handleVal[1] == Webhooker.Server.msgPartCat.player then
-		return Webhooker.Server.players[handleVal[2]]
-	elseif handleVal[1] == Webhooker.Server.msgPartCat.func then
-		return Webhooker.Server.funcs[handleVal[2]](msgArg)
-	else
-		Webhooker.Logging.log("Unrecognised message part type " .. handleVal[1] .. " for handle "..handle)
-		Webhooker.Logging.log({"Webhooker.Server.msgPartRevLookup:", Webhooker.Server.msgPartRevLookup})
-		return nil
-	end	
 end
 --------------------------------------------------------------
 -- LUA WORKER SETUP
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Start lua worker thread if it's 
 		not running/starting
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Server.ensureLuaWorker = function()
 
 	if Webhooker.Server.worker ~= nil then
@@ -476,25 +544,26 @@ Webhooker.Server.ensureLuaWorker = function()
 	Webhooker.Server.worker:DoString("package.cpath = [[" .. package.cpath .. ";"..Webhooker.Server.scriptRoot..[[\https\?.dll;]] .. "]]")
 	Webhooker.Server.worker:DoString("package.path = [[" .. package.path .. ";"..Webhooker.Server.scriptRoot..[[\https\?.lua;]] .. "]]")
 	--Webhooker.Server.worker:DoString("scriptRoot = [[" .. Webhooker.Server.scriptRoot .. "]]")
-	Webhooker.Server.worker:DoFile(Webhooker.Server.scriptRoot .. [[\Webhooker_worker_init.lua]])
+	Webhooker.Server.worker:DoFile(Webhooker.Server.scriptRoot .. [[\Webhooker_worker.lua]])
 end
 
---------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- CALLBACKS
+--------------------------------------------------------------------------------------
 
 Webhooker.Handlers = {}
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		onMissionLoadBegin
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onMissionLoadBegin = function()
 	--if not DCS.isServer() or not DCS.isMultiplayer() then return end --TODO
 	Webhooker.safeCall(Webhooker.Handlers.doOnMissionLoadBegin)
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		doOnMissionLoadBegin
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnMissionLoadBegin = function()
 	Webhooker.Server.loadConfiguration()
 	local log_file_name = 'DCS_Webhooker.Logging.log'
@@ -506,45 +575,56 @@ Webhooker.Handlers.doOnMissionLoadBegin = function()
 
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		onMissionLoadBegin
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onMissionLoadEnd = function()
 	--if not DCS.isServer() or not DCS.isMultiplayer() then return end --TODO
 	Webhooker.safeCall(Webhooker.Handlers.doOnMissionLoadEnd)
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		doOnMissionLoadEnd
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnMissionLoadEnd = function()
 	Webhooker.Logging.log("Mission "..DCS.getMissionName().." loaded",Webhooker.Server.currentLogFile)
 	
+	-- local execString = [[a_do_script_file("]]
+
+	-- execString = execString .. Webhooker.Server.scriptRoot .. [[\Webhooker_mission.lua]]
+
+	-- execString = execString .. [[")]]
+
+	-- Webhooker.Logging.log(execString)
+	-- net.dostring_in(Webhooker.Server.scrEnvMission, execString)
+	-- Webhooker.Logging.log("Mission scripting library pushed")
+
+	Webhooker.Server.pushConfig()
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		onPlayerConnect
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onPlayerConnect = function(id)
 	--if not DCS.isServer() or not DCS.isMultiplayer() then return end
 	Webhooker.safeCall(Webhooker.Handlers.doOnPlayerConnect,id)
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		doOnPlayerConnect
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnPlayerConnect = function(id)
 	local name = Webhooker.Server.getPlayerName(id)
 	--local ucid = Webhooker.Server.getPlayerUcid(id)
 	
 	Webhooker.Server.players[name] = name
 
-	local existingInd = Webhooker.Server.msgPartLookup.player[name]
-	local revLookupEntry = {Webhooker.Server.msgPartCat.player, name}
+	local existingInd = Webhooker.Server.msgPartLookup.players[name]
+	local revLookupEntry = {Webhooker.Server.players, name}
 
 	if  existingInd == nil then
 		Webhooker.Server.msgPartRevLookup[Webhooker.Server.nextMsgPartId] = revLookupEntry
-		Webhooker.Server.msgPartLookup.player[name] = Webhooker.Server.nextMsgPartId
+		Webhooker.Server.msgPartLookup.players[name] = Webhooker.Server.nextMsgPartId
 		Webhooker.Server.nextMsgPartId = Webhooker.Server.nextMsgPartId + 1
 	end
 
@@ -553,17 +633,17 @@ Webhooker.Handlers.doOnPlayerConnect = function(id)
 	Webhooker.Logging.log("Player ".. name .. " added")
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		onSimulationStop
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onSimulationStop = function()
 	--if not DCS.isServer() or not DCS.isMultiplayer() then return end
 	Webhooker.safeCall(Webhooker.Handlers.doOnSimulationStop)
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		doOnSimulationStop
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnSimulationStop = function()
 
 	if Webhooker.Server.worker ~= nil then
@@ -577,17 +657,17 @@ Webhooker.Handlers.doOnSimulationStop = function()
 	end
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		onSimulationStart
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onSimulationStart = function()
 	--if not DCS.isServer() or not DCS.isMultiplayer() then return end
 	Webhooker.safeCall(Webhooker.Handlers.doOnSimulationStart)
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		doOnSimulationStart
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnSimulationStart = function()
 	Webhooker.Server.reloadTemplates()
 	Webhooker.Server.pushLookup()
@@ -596,9 +676,9 @@ Webhooker.Handlers.doOnSimulationStart = function()
 	Webhooker.Server.ensureLuaWorker()
 end
 
---[[------------------------------------------
+--[[----------------------------------------------------------------------------------
 		onSimulationFrame
---]]------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onSimulationFrame = function()
 	if Webhooker.Server.pollFrameTime > Webhooker.Server.config.framesPerPoll 
 		or Webhooker.Server.popAgainNextFrame then
@@ -625,13 +705,13 @@ Webhooker.Handlers.onSimulationFrame = function()
 	Webhooker.Server.pollFrameTime = Webhooker.Server.pollFrameTime + 1
 end
 
---------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- INIT METHOD CALLS
---------------------------------------------------------------
+--------------------------------------------------------------------------------------
 
---[[-------------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Get connection strings
---]]-------------------------------------------------
+--]]----------------------------------------------------------------------------------
 Webhooker.safeCall(
     function()
         local envVar = os.getenv(Webhooker.Server.config.channelEnv)
@@ -643,16 +723,8 @@ Webhooker.safeCall(
         end
     end)
 
---[[-------------------------------------------------
-		Add default functions to be called
-		to populate template
---]]-------------------------------------------------
-Webhooker.Server.addDefaultFuncs()
-
---[[-------------------------------------------------
+--[[----------------------------------------------------------------------------------
 		Register callbacks
---]]-------------------------------------------------
+--]]----------------------------------------------------------------------------------
 DCS.setUserCallbacks(Webhooker.Handlers)
-
-Webhooker.Logging.log("TODO In Server")
 

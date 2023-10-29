@@ -1,5 +1,5 @@
 
-InLuaWorker.LogInfo("Webhooker_worker_init.lua Starting.")
+InLuaWorker.LogInfo("Webhooker_worker.lua Starting.")
 --InLuaWorker.LogInfo("scriptRoot set to " .. scriptRoot)
 
 --package.cpath = package.cpath..";"..scriptRoot..[[\https\?.dll;]]
@@ -69,7 +69,7 @@ Webhooker.Worker.makeMsgContent = function (rawTemplate,subStrings)
 
 			if substring == nil then
 				substring = ""
-				-- Webhooker.log("Substring not found for  \"" .. tok .. "\"")
+				InLuaWorker.LogError("Substring not found for  \"" .. tok .. "\"")
 				return nil
 			end
 			finalText = finalText .. substring 
@@ -82,6 +82,7 @@ end
 
 Webhooker.Worker.MakeWebhookCall_ = function (webhookUrl,body)
 
+	if body == nil then body = "" end
     InLuaWorker.LogInfo("MakeWebhookCall_ started. Body: " .. body) 
 
 	local source = ltn12.source.string(body)
@@ -122,6 +123,8 @@ Webhooker.Worker.CallAndRetry = function (msgData)
 
     local body = Webhooker.Worker.makeMsgContent(msgData.templateRaw,msgData.templateArgs)
 
+	if body == nil then return end
+
     for i = 1,5 do 
         if Webhooker.Worker.MakeWebhookCall_(msgData.webhook,body) then break end
         InLuaWorker.YieldFor(delay)
@@ -129,4 +132,4 @@ Webhooker.Worker.CallAndRetry = function (msgData)
     end
 end
 
-InLuaWorker.LogInfo("Webhooker_worker_init.lua run.")
+InLuaWorker.LogInfo("Webhooker_worker.lua run.")
