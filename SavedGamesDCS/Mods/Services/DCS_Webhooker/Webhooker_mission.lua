@@ -77,7 +77,11 @@ Webhooker.doSendArgs_ = function(rootFlagName, ...)
             if handle >= 0 then handle = handle + 2 end
             trigger.action.setUserFlag(userFlag,handle)
 
-            Webhooker.doSendArgs_(userFlag, v[2])
+            if type(v[2]) == 'table' then
+                Webhooker.doSendArgs_(userFlag, unpack(v[2]))
+            else
+                Webhooker.doSendArgs_(userFlag)
+            end
         else 
             trigger.action.setUserFlag(userFlag,true) -- invalid argument, add placeholder to indicate nil
         end

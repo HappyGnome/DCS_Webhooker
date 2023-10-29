@@ -119,6 +119,9 @@ end
 		to install strings
 --]]----------------------------------------------------------------------------------
 Webhooker.Server.addString=function(stringKey,stringValue)
+	
+	if stringValue == nil then stringValue = stringKey end
+
 	Webhooker.Server.strings[stringKey] = stringValue
 end
 
