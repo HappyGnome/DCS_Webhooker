@@ -56,7 +56,7 @@ Webhooker.Server = {
 	scrEnvServer = "server"
 }
 
- package.cpath = package.cpath..";"..Webhooker.Server.scriptRoot..[[\LuaWorker\?.dll;]]
+ package.cpath = package.cpath..";"..Webhooker.Server.scriptRoot..[[\core\LuaWorker\?.dll;]]
  local LuaWorker = nil
 
 --------------------------------------------------------------------------------------
@@ -204,7 +204,7 @@ end
 --]]----------------------------------------------------------------------------------
 Webhooker.Server.reloadTemplates = function()
 	Webhooker.Server.templates = {}
-	local messagesDir = Webhooker.Server.scriptRoot..[[\messages]]
+	local messagesDir = Webhooker.Server.scriptRoot..[[\messageTemplates]]
 
 	Webhooker.Logging.log(messagesDir)	
 	for fpath in lfs.dir(messagesDir) do
@@ -544,10 +544,10 @@ Webhooker.Server.ensureLuaWorker = function()
 
 	Webhooker.Server.worker = LuaWorker.Create()
 	Webhooker.Server.worker:Start()
-	Webhooker.Server.worker:DoString("package.cpath = [[" .. package.cpath .. ";"..Webhooker.Server.scriptRoot..[[\https\?.dll;]] .. "]]")
-	Webhooker.Server.worker:DoString("package.path = [[" .. package.path .. ";"..Webhooker.Server.scriptRoot..[[\https\?.lua;]] .. "]]")
+	Webhooker.Server.worker:DoString("package.cpath = [[" .. package.cpath .. ";"..Webhooker.Server.scriptRoot..[[\core\https\?.dll;]] .. "]]")
+	Webhooker.Server.worker:DoString("package.path = [[" .. package.path .. ";"..Webhooker.Server.scriptRoot..[[\core\https\?.lua;]] .. "]]")
 	--Webhooker.Server.worker:DoString("scriptRoot = [[" .. Webhooker.Server.scriptRoot .. "]]")
-	Webhooker.Server.worker:DoFile(Webhooker.Server.scriptRoot .. [[\Webhooker_worker.lua]])
+	Webhooker.Server.worker:DoFile(Webhooker.Server.scriptRoot .. [[\core\Webhooker_worker.lua]])
 end
 
 --------------------------------------------------------------------------------------
@@ -592,15 +592,18 @@ end
 Webhooker.Handlers.doOnMissionLoadEnd = function()
 	Webhooker.Logging.log("Mission "..DCS.getMissionName().." loaded",Webhooker.Server.currentLogFile)
 	
-	-- local execString = [[a_do_script_file("]]
+	local file = assert(io.open(Webhooker.Server.scriptRoot .. [[\core\Webhooker_mission_inject.lua]], "r"))
+	local injectContent = file:read("*all")
+    file:close()
 
-	-- execString = execString .. Webhooker.Server.scriptRoot .. [[\Webhooker_mission.lua]]
+	local execString = 
+	[[
+		a_do_script("]] .. Webhooker.Serialization.escapeLuaString(injectContent) .. [[")
+	]]
 
-	-- execString = execString .. [[")]]
+	Webhooker.Logging.log(execString) --TODO
 
-	-- Webhooker.Logging.log(execString)
-	-- net.dostring_in(Webhooker.Server.scrEnvMission, execString)
-	-- Webhooker.Logging.log("Mission scripting library pushed")
+	net.dostring_in(Webhooker.Server.scrEnvMission, execString)
 
 	Webhooker.Server.pushConfig()
 end
