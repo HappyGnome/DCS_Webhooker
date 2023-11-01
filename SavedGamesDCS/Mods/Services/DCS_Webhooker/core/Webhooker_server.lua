@@ -391,6 +391,9 @@ Webhooker.Server.popMessage = function()
 		net.dostring_in(Webhooker.Server.scrEnvServer, execString)
 	end
 
+	Webhooker.Logging.log("Popped message flags: ")
+	Webhooker.Logging.log(ret)
+
 	return ret
 
 end
@@ -438,9 +441,6 @@ Webhooker.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 				args = args
 			}
 		end
-
-		Webhooker.Logging.log("Popped: " .. userFlag)
-		Webhooker.Logging.log(ret)
 
 		-- clear flag
 		execString = 
@@ -601,8 +601,6 @@ Webhooker.Handlers.doOnMissionLoadEnd = function()
 		a_do_script("]] .. Webhooker.Serialization.escapeLuaString(injectContent) .. [[")
 	]]
 
-	Webhooker.Logging.log(execString) --TODO
-
 	net.dostring_in(Webhooker.Server.scrEnvMission, execString)
 
 	Webhooker.Server.pushConfig()
@@ -724,7 +722,7 @@ Webhooker.safeCall(
         if envVar == nil then return end
 
         for k,v in string.gmatch(envVar,"([^;]+)=([^;]+);?") do
-            --Webhooker.Logging.log(k.." "..v)
+            --Webhooker.Logging.log(k.." "..v) 
             Webhooker.Server.webhooks[k] = v
         end
     end)

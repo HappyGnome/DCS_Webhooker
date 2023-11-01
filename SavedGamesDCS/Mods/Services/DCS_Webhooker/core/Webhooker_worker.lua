@@ -12,7 +12,7 @@ local string = require("string")
 local ltn12 = require("ltn12")
 local os = require("os")
 require("url") -- defines socket.url, which socket.http looks for
-http = require("http") -- socket.http
+require("http") -- socket.http
 local https = require("https")
 
 require("Webhooker_serialization")
@@ -83,16 +83,29 @@ end
 Webhooker.Worker.MakeWebhookCall_ = function (webhookUrl,body)
 
 	if body == nil then body = "" end
+	if webhookUrl == nil then return false end
+
     InLuaWorker.LogInfo("MakeWebhookCall_ started. Body: " .. body) 
 
 	local source = ltn12.source.string(body)
 
-    local T, code, headers, status =  
-    https.request({ url = webhookUrl,
-                    method = "POST",
-                    headers={["Content-Type"] = "application/json",
-                             ["Content-Length"] = string.len(body)},
-                    source = source})
+    local T, code, headers, status
+    
+	if string.sub(webhookUrl,1,5) == 'https' then
+		T, code, headers, status =  
+		https.request({ url = webhookUrl,
+						method = "POST",
+						headers={["Content-Type"] = "application/json",
+								["Content-Length"] = string.len(body)},
+						source = source})
+	else
+		T, code, headers, status =  
+		socket.http.request({  url = webhookUrl,
+					    method = "POST",
+					    headers={["Content-Type"] = "application/json",
+								["Content-Length"] = string.len(body)},
+					    source = source})
+	end
 
 
     if T == nil or code == nil or code < 200 or code >= 300 then
