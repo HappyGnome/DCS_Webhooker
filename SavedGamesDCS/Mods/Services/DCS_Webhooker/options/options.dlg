@@ -314,7 +314,7 @@ dialog = {
                             type = "EditBox",
                             skin = styles.editbox.skin,
                             params = {
-                                bounds = gridBound(1,1,5,1),
+                                bounds = gridBound(1,1,6,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
@@ -332,7 +332,7 @@ dialog = {
                             type = "Static",
                             skin = styles.labelWarn.skin,
                             params = {
-                                bounds = gridBound(1,6,1,1),
+                                bounds = gridBound(1,7,1,1),
                                 enabled = true,
                                 visible = false,
                                 tooltip = "",
@@ -407,7 +407,19 @@ dialog = {
                                 tabOrder = 3
                             }
                         },
-
+                        lblWebhookWarn = {
+                            type = "Static",
+                            skin = styles.labelWarn.skin,
+                            params = {
+                                bounds = gridBound(2,7,1,1),
+                                enabled = true,
+                                visible = false,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Invalid",
+                                tabOrder = 3
+                            }
+                        },
                         -- Body
                         lblBody = {
                             type = "Static",
@@ -509,7 +521,7 @@ dialog = {
                             type = "EditBox",
                             skin = styles.editbox.skin,
                             params = {
-                                bounds = gridBound(1,1,6,1),
+                                bounds = gridBound(1,1,5,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
@@ -521,6 +533,19 @@ dialog = {
                                 teexWrapping = true,
                                 password = false,
                                 numeric = false
+                            }
+                        },
+                        lblWebhookWarn = {
+                            type = "Static",
+                            skin = styles.labelWarn.skin,
+                            params = {
+                                bounds = gridBound(1,6,1,1),
+                                enabled = true,
+                                visible = false,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Invalid",
+                                tabOrder = 3
                             }
                         },
                         --Row 2
@@ -541,7 +566,7 @@ dialog = {
                             type = "EditBox",
                             skin = styles.editbox.skin,
                             params = {
-                                bounds = gridBound(2,1,6,1),
+                                bounds = gridBound(2,1,5,2),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
@@ -560,7 +585,7 @@ dialog = {
                             type = "Button",
                             skin = styles.button.skin,
                             params = {
-                                bounds = gridBound(3,5,1,1),
+                                bounds = gridBound(4,4,1,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
@@ -573,7 +598,7 @@ dialog = {
                             type = "Button",
                             skin = styles.button.skin,
                             params = {
-                                bounds = gridBound(3,6,1,1),
+                                bounds = gridBound(4,5,1,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",

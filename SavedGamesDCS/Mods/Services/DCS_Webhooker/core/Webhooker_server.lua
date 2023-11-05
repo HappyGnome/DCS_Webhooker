@@ -89,8 +89,13 @@ function Webhooker.Server.loadConfiguration()
 		end        
     end
 
-	if (cfg and cfg.Webhooker and cfg.Webhooker.templates) then
-		Webhooker.Server.templates = cfg.Webhooker.templates     
+	if cfg and cfg.Webhooker then
+		if cfg.Webhooker.templates then
+			Webhooker.Server.templates = cfg.Webhooker.templates     
+		end
+		if cfg.Webhooker.webhooks then
+			Webhooker.Server.webhooks = cfg.Webhooker.webhooks   
+		end
     end
 	
 	Webhooker.Server.saveConfiguration()
@@ -100,7 +105,11 @@ end
 		Write current config to file
 --]]----------------------------------------------------------------------------------
 function Webhooker.Server.saveConfiguration()
-	local toSave = {config = Webhooker.Server.config, templates = Webhooker.Server.templates}
+	local toSave = {
+		config = Webhooker.Server.config, 
+		templates = Webhooker.Server.templates,
+		webhooks = Webhooker.Server.webhooks
+	}
     U.saveInFile(toSave, 'Webhooker', lfs.writedir()..'Config/Webhooker.lua')
 end
 

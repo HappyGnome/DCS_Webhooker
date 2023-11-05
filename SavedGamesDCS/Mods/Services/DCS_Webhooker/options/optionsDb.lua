@@ -19,6 +19,12 @@ local workingTemplate = {
 	bodyRaw = ""
 }
 
+local workingWebhook = {
+    origWebhookKey = "",
+    webhookKey = "",
+	url = ""
+}
+
 --------------------------------------------------------------------------------------
 -- WIDGET HELPERS
 --------------------------------------------------------------------------------------
@@ -49,36 +55,60 @@ end
 --------------------------------------------------------------------------------------
 
 local GoPageTemplateEdit = function(dialog)
-    dialog.pnlTemplateEdit:setVisible(true)
-    dialog.pnlTemplateSelect:setVisible(false)
-    dialog.pnlWebhookEdit:setVisible(false)
-end
-
-local GoPageTemplateSelect = function(dialog)
 
     dialog.pnlTemplateEdit.edtName:setText(workingTemplate.templateKey)
     if webhookKeyItemMap[workingTemplate.webhookKey] ~= nil then
         dialog.pnlTemplateEdit.cmbWebhook:selectItem(webhookKeyItemMap[workingTemplate.webhookKey])
     end
     dialog.pnlTemplateEdit.edtBody:setText(workingTemplate.bodyRaw)
+    dialog.pnlTemplateEdit.lblNameWarn:setVisible(false)
+    dialog.pnlTemplateEdit.lblWebhookWarn:setVisible(false)
 
+    dialog.pnlTemplateEdit:setVisible(true)
+    dialog.pnlTemplateSelect:setVisible(false)
+    dialog.pnlWebhookEdit:setVisible(false)
+end
+
+local GoPageTemplateSelect = function(dialog)
     dialog.pnlTemplateEdit:setVisible(false)
     dialog.pnlTemplateSelect:setVisible(true)
     dialog.pnlWebhookEdit:setVisible(false)
 end
 
 local GoPageWebhookEdit = function(dialog)
+    dialog.pnlWebhookEdit.edtWebhook:setText(workingWebhook.webhookKey)
+    dialog.pnlWebhookEdit.edtUrl:setText(workingWebhook.url)
+
+    dialog.pnlWebhookEdit.lblWebhookWarn:setVisible(false)
+
     dialog.pnlTemplateEdit:setVisible(false)
     dialog.pnlTemplateSelect:setVisible(false)
     dialog.pnlWebhookEdit:setVisible(true)
 end
 
+local StashWorkingTemplate = function(dialog)
+    local webhookItem = dialog.pnlTemplateEdit.cmbWebhook:getSelectedItem()
+    if webhookItem ~= nil then
+        workingTemplate.webhookKey = webhookItem:getText()
+    end
+
+    workingTemplate.templateKey = dialog.pnlTemplateEdit.edtName:getText()
+    
+    workingTemplate.bodyRaw = dialog.pnlTemplateEdit.edtBody:getText()
+end
+
+local ResetTemplateListCombo = function(dialog)
+    webhookKeyItemMap = resetComboListFromTable(dialog.pnlTemplateSelect.cmbTemplate,Webhooker.Server.templates)
+end
+
+local ResetWebhookListCombo = function(dialog)
+    resetComboListFromTable(dialog.pnlTemplateEdit.cmbWebhook,Webhooker.Server.webhooks)
+end
 --------------------------------------------------------------------------------------
 -- EVENT HANDLERS
 --------------------------------------------------------------------------------------
 
 local handleTemplateAdd = function(dialog)
-    --TODO
     
     workingTemplate = {
         origTemplateKey = "",
@@ -91,12 +121,33 @@ local handleTemplateAdd = function(dialog)
 end
 
 local handleTemplateEdit = function(dialog)
-    --TODO
-    GoPageTemplateEdit(dialog)
+    
+    local item = dialog.pnlTemplateSelect.cmbTemplate:getSelectedItem()
+
+    if item ~= nil then
+        local templateKey = item:getText()
+        local templateOrig = Webhooker.Server.templates[templateKey]
+        workingTemplate = 
+        {
+            bodyRaw = templateOrig.bodyRaw,
+            webhookKey = templateOrig.webhookKey,
+            origTemplateKey = templateKey,
+            templateKey = templateKey
+        }
+
+        GoPageTemplateEdit(dialog)
+    end
 end
 
 local handleTemplateDelete = function(dialog)
-    --TODO
+
+    local item = dialog.pnlTemplateSelect.cmbTemplate:getSelectedItem()
+
+    if item ~= nil then
+        Webhooker.Server.templates[item:getText()] = nil
+        Webhooker.Server.saveConfiguration()
+        ResetTemplateListCombo(dialog)
+    end
 end
 
 local handleTemplateCancel = function(dialog)
@@ -104,30 +155,71 @@ local handleTemplateCancel = function(dialog)
 end
 
 local handleTemplateSave = function(dialog)
-    --TODO
+    
+    local webhookItem = dialog.pnlTemplateEdit.cmbWebhook:getSelectedItem()
+    if webhookItem == nil then
+        dialog.pnlTemplateEdit.lblWebhookWarn:setVisible(true)
+        return
+    end
+
+    StashWorkingTemplate(dialog)
 
     if workingTemplate.templateKey == nil or workingTemplate.templateKey =="" or 
         (workingTemplate.templateKey ~= workingTemplate.origTemplateKey and Webhooker.Server.templates[workingTemplate.templateKey] ~=nil) then
         dialog.pnlTemplateEdit.lblNameWarn:setVisible(true)
         return
     end
+
+    Webhooker.Server.templates[workingTemplate.templateKey] = {
+        webhookKey = workingTemplate.webhookKey,
+        bodyRaw = workingTemplate.bodyRaw
+    }
+
     Webhooker.Server.saveConfiguration()
 
+    ResetTemplateListCombo(dialog)
     GoPageTemplateSelect(dialog)
 end
 
 local handleWebhookAdd = function(dialog)
-    --TODO
+
+    StashWorkingTemplate(dialog)
+    workingWebhook = {
+        origWebhookKey = "",
+        webhookKey = "",
+        url = ""
+    }
+
     GoPageWebhookEdit(dialog)
 end
 
 local handleWebhookEdit = function(dialog)
-    --TODO
-    GoPageWebhookEdit(dialog)
+
+    StashWorkingTemplate(dialog)
+
+    local item = dialog.pnlTemplateEdit.cmbWebhook:getSelectedItem()
+
+    if item ~= nil then
+        local webhookKey = item:getText()
+        workingWebhook = 
+        {
+            url = Webhooker.Server.webhooks[webhookKey],
+            origWebhookKey = webhookKey,
+            webhookKey = webhookKey
+        }
+
+        GoPageWebhookEdit(dialog)
+    end    
 end
 
 local handleWebhookDelete = function(dialog)
-    --TODO
+    local item = dialog.pnlTemplateEdit.cmbWebhook:getSelectedItem()
+
+    if item ~= nil then
+        Webhooker.Server.webhooks[item:getText()] = nil
+        Webhooker.Server.saveConfiguration()
+        ResetWebhookListCombo(dialog)
+    end
 end
 
 local handleWebhookCancel = function(dialog)
@@ -135,7 +227,21 @@ local handleWebhookCancel = function(dialog)
 end
 
 local handleWebhookSave = function(dialog)
-    --TODO
+
+    workingWebhook.webhookKey = dialog.pnlWebhookEdit.edtWebhook:getText()
+    workingWebhook.url = dialog.pnlWebhookEdit.edtUrl:getText()    
+
+    if workingWebhook.webhookKey == nil or workingWebhook.webhookKey == "" or 
+        (workingWebhook.webhookKey ~= workingWebhook.origWebhookKey 
+            and Webhooker.Server.webhooks[workingWebhook.webhookKey] ~= nil) then
+        dialog.pnlWebhookEdit.lblWebhookWarn:setVisible(true)
+        return
+    end
+
+    Webhooker.Server.webhooks[workingWebhook.webhookKey] = workingWebhook.url
+
+    ResetWebhookListCombo(dialog)
+
     Webhooker.Server.saveConfiguration()
 
     GoPageTemplateEdit(dialog)
@@ -147,6 +253,7 @@ end
 local showDialog = function(dialog)
     if dialog == nil then return end
 
+    -- Template select controls
     if dialog.pnlTemplateSelect.btnTemplateAdd then
         function dialog.pnlTemplateSelect.btnTemplateAdd:onChange() handleTemplateAdd(dialog) end
     end
@@ -159,6 +266,7 @@ local showDialog = function(dialog)
         function dialog.pnlTemplateSelect.btnTemplateDel:onChange() handleTemplateDelete(dialog) end
     end
 
+    -- Template edit controls
     if dialog.pnlTemplateEdit.btnCancelTemplate then
         function dialog.pnlTemplateEdit.btnCancelTemplate:onChange() handleTemplateCancel(dialog) end
     end
@@ -179,6 +287,7 @@ local showDialog = function(dialog)
         function dialog.pnlTemplateEdit.btnWebhookDel:onChange() handleWebhookDelete(dialog) end
     end
 
+    -- Webhook edit controls
     if dialog.pnlWebhookEdit.btnWebhookCancel then
         function dialog.pnlWebhookEdit.btnWebhookCancel:onChange() handleWebhookCancel(dialog) end
     end
@@ -187,9 +296,11 @@ local showDialog = function(dialog)
         function dialog.pnlWebhookEdit.btnWebhookSave:onChange() handleWebhookSave(dialog) end
     end
 
-    resetComboListFromTable(dialog.pnlTemplateSelect.cmbTemplate,Webhooker.Server.templates)
-    webhookKeyItemMap = resetComboListFromTable(dialog.pnlTemplateEdit.cmbWebhook,Webhooker.Server.webhooks)
-
+    -- Initialize lists
+    
+    ResetWebhookListCombo(dialog)
+    ResetTemplateListCombo(dialog)
+    
     -- dialog.cmbTemplate:clear()
     -- local first = true
     -- for k,v in pairs(Webhooker.Server.templates) do
