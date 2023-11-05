@@ -2,7 +2,7 @@
 # INTRODUCTION
 
 The aim of DCS_Webhooker is to allow DCS (servers) to post messages to Discord (or other similar API with an HTTPS webhook) from the mission environment.
-This project is in the prototyping stage. Final capabilities TBC.
+
 
 # INSTALLATION
 

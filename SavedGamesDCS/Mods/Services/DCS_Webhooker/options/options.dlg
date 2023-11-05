@@ -1,0 +1,591 @@
+
+local linePad = 4
+local lineHeight = 24
+local lineHeightTotal = lineHeight + linePad
+
+local pageMargin = 8
+local pageWidthTotal = 974
+local pageHeightTotal = 600
+local pageWidthContent = pageWidthTotal - (2 * pageMargin )
+
+local colPad = 4
+local columns = 8
+
+local colWidth = pageWidthContent / columns
+
+local gridBound = function (r,c,w,h)
+
+    return {
+        y = (r * lineHeightTotal) + linePad,
+        x = (colWidth * c) + colPad,
+        w = (w * colWidth) - (2 * colPad),
+        h = (h * lineHeightTotal )- (2 * linePad)
+    }
+end
+
+local dialogBound = function (r,c)    
+
+    return {
+        y = (pageHeightTotal/2) - (r * lineHeightTotal/2) + linePad,
+        x = (pageWidthTotal/2) - (colWidth * c/2) + colPad,
+        w = c * colWidth - (2 * colPad),
+        h = r * lineHeightTotal - (2 * linePad)
+    }
+end
+
+local styles = {
+    button = {
+        skin = {
+            params = {
+                name = "buttonSkinRedNew"
+            },
+            states = {
+                released = {
+                    [1] = {
+                        text = {
+                            color = "0xffffffff"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    combolist = {
+        skin = {
+            params = {
+                name = "comboListSkin_options"
+            }
+        }
+    },
+    editbox = {
+        skin = {
+            params = {
+                name = "editBoxSkin_ME",
+            }
+        }
+    },
+    label = {
+        skin = {
+            params = {
+                name = "staticOptionsTitleSkin"
+            },
+            states = {
+                released = {
+                    [1] = {
+                        text = {
+                            horzAlign = {
+                                type = "min"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    labelWarn = {
+        skin = {
+            params = {
+                name = "staticOptionsTitleSkin"
+            },
+            states = {
+                released = {
+                    [1] = {
+                        text = {
+                            color = "0xff0000ff",
+                            horzAlign = {
+                                type = "min"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    panel = {
+        skin = {
+            params = {
+                name ="panelSkin"
+            },
+            states = {
+                released = {
+                    [1] = {
+                        bkg = {
+                            center_center = "0x2d3e50ff"
+                        },
+                    },
+                },
+            },
+        }
+    },
+    title = {
+        skin = {
+            params = {
+                name = "staticOptionsTitleSkin"
+            },
+            states = {
+                released = {
+                    [1] = {
+                        text = {
+                            horzAlign = {
+                                type = "min"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+-- Create Content
+dialog = {
+
+    type = "Window",
+    skin = {
+        params = {
+            name ="windowSkin"
+        }
+    },
+    params = {
+        enabled = true,
+        bounds = {
+            x = 0,
+            y = 0,
+            w = 1135,
+            h = 851
+        },
+        draggable = true,
+        enabled = true,
+        hasCursor = true,
+        lockFlow = false,
+        modal = false,
+        tooltip = "",
+        zindex = 10,
+        zOrder = 10,
+        text = ""
+    },
+    children ={
+        containerPlugin = {
+            type = "Panel",
+            skin = {
+                params = {
+                    name ="panelSkin"
+                }
+            },
+            params = {
+                enabled = true,
+                bounds = {
+                    x = 0,
+                    y = 0,
+                    w = pageWidthTotal,
+                    h = pageHeightTotal
+                },
+                visible = true,
+                tooltip = "",
+                zindex = 9,
+                text = ""
+            },
+            children = {
+                pnlTemplateSelect = {
+                    type = "Panel",
+                    skin = {
+                        params = {
+                            name ="panelSkin"
+                        }
+                    },
+                    params = {
+                        enabled = true,
+                        bounds = {
+                            x = 0,
+                            y = 0,
+                            w = pageWidthTotal,
+                            h = pageHeightTotal
+                        },
+                        visible = true,
+                        tooltip = "",
+                        zindex = 9,
+                        text = ""
+                    },
+                    children = {
+                        --Row 1
+                        lblTemplate = {
+                            type = "Static",
+                            skin = styles.label.skin,
+                            params = {
+                                bounds = gridBound(1,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Template",
+                                tabOrder = 3
+                            }
+                        },
+                        cmbTemplate = {
+                            type = "ComboList",
+                            skin = styles.combolist.skin,
+                            params = {
+                                bounds = gridBound(1,1,3,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3
+                            }
+                        },
+                        btnTemplateAdd = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(1,4,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Add",
+                                tabOrder = 3
+                            }
+                        },
+                        btnTemplateEdit = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(1,5,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Edit",
+                                tabOrder = 3
+                            }
+                        },
+                        btnTemplateDel = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(1,6,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Delete",
+                                tabOrder = 3
+                            }
+                        },
+                    },
+                },
+                pnlTemplateEdit = {
+                    type = "Panel",
+                    skin = {
+                        params = {
+                            name ="panelSkin"
+                        }
+                    },
+                    params = {
+                        enabled = true,
+                        bounds = {
+                            x = 0,
+                            y = 0,
+                            w = pageWidthTotal,
+                            h = pageHeightTotal
+                        },
+                        visible = false,
+                        tooltip = "",
+                        zindex = 9,
+                        text = ""
+                    },
+                    children = {
+                        --Row 1
+                        lblName = {
+                            type = "Static",
+                            skin = styles.label.skin,
+                            params = {
+                                bounds = gridBound(1,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Name",
+                                tabOrder = 3
+                            }
+                        },
+                        edtName = {
+                            type = "EditBox",
+                            skin = styles.editbox.skin,
+                            params = {
+                                bounds = gridBound(1,1,5,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3,
+                                multiline = true,
+                                readOnly = false,
+                                teexWrapping = true,
+                                password = false,
+                                numeric = false
+                            }
+                        },
+                        lblNameWarn = {
+                            type = "Static",
+                            skin = styles.labelWarn.skin,
+                            params = {
+                                bounds = gridBound(1,6,1,1),
+                                enabled = true,
+                                visible = false,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Invalid",
+                                tabOrder = 3
+                            }
+                        },
+                        --Row 2
+                        lblWebhook = {
+                            type = "Static",
+                            skin = styles.label.skin,
+                            params = {
+                                bounds = gridBound(2,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Webhook",
+                                tabOrder = 3
+                            }
+                        },
+                        cmbWebhook = {
+                            type = "ComboList",
+                            skin = styles.combolist.skin,
+                            params = {
+                                bounds = gridBound(2,1,3,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3
+                            }
+                        },
+                        btnWebhookAdd = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(2,4,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Add",
+                                tabOrder = 3
+                            }
+                        },
+                        btnWebhookEdit = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(2,5,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Edit",
+                                tabOrder = 3
+                            }
+                        },
+                        btnWebhookDel = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(2,6,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Delete",
+                                tabOrder = 3
+                            }
+                        },
+
+                        -- Body
+                        lblBody = {
+                            type = "Static",
+                            skin = styles.label.skin,
+                            params = {
+                                bounds = gridBound(3,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Body",
+                                tabOrder = 3
+                            }
+                        },
+                        edtBody = {
+                            type = "EditBox",
+                            skin = styles.editbox.skin,
+                            params = {
+                                bounds = gridBound(3,1,6,10),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3,
+                                multiline = true,
+                                readOnly = false,
+                                teexWrapping = true,
+                                password = false,
+                                numeric = false
+                            }
+                        },
+
+                        --Row 4
+                        btnCancelTemplate = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(13,5,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Cancel",
+                                tabOrder = 3
+                            }
+                        },
+                        btnSaveTemplate = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(13,6,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Save",
+                                tabOrder = 3
+                            }
+                        },
+                    },
+                },
+                pnlWebhookEdit = {
+                    type = "Panel",
+                    skin = {
+                        params = {
+                            name ="panelSkin"
+                        }
+                    },
+                    params = {
+                        enabled = true,
+                        bounds = {
+                            x = 0,
+                            y = 0,
+                            w = pageWidthTotal,
+                            h = pageHeightTotal
+                        },
+                        visible = false,
+                        tooltip = "",
+                        zindex = 9,
+                        text = ""
+                    },
+                    children = {
+                        --Row 1
+                        lblWebhook = {
+                            type = "Static",
+                            skin = styles.label.skin,
+                            params = {
+                                bounds = gridBound(1,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Name",
+                                tabOrder = 3
+                            }
+                        },
+                        edtWebhook = {
+                            type = "EditBox",
+                            skin = styles.editbox.skin,
+                            params = {
+                                bounds = gridBound(1,1,6,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3,
+                                multiline = true,
+                                readOnly = false,
+                                teexWrapping = true,
+                                password = false,
+                                numeric = false
+                            }
+                        },
+                        --Row 2
+                        lblUrl = {
+                            type = "Static",
+                            skin = styles.label.skin,
+                            params = {
+                                bounds = gridBound(2,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "URL",
+                                tabOrder = 3
+                            }
+                        },
+                        edtUrl = {
+                            type = "EditBox",
+                            skin = styles.editbox.skin,
+                            params = {
+                                bounds = gridBound(2,1,6,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3,
+                                multiline = true,
+                                readOnly = false,
+                                teexWrapping = true,
+                                password = false,
+                                numeric = false
+                            }
+                        },
+                        --Row 3
+                        btnWebhookCancel = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(3,5,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Cancel",
+                                tabOrder = 3
+                            }
+                        },
+                        btnWebhookSave = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(3,6,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Save",
+                                tabOrder = 3
+                            }
+                        },
+
+                    },
+                },
+            }
+        }
+    }
+}

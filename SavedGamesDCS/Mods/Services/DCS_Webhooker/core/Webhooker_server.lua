@@ -5,7 +5,7 @@ local tools = require('tools')
 local os = require("os")
 local U  = require('me_utilities')
 local lfs=require('lfs');
-package.path = package.path .. [[;]] .. lfs.writedir() .. [[Mods\Services\DCS_Webhooker\?.lua;]]
+package.path = package.path .. [[;]] .. lfs.writedir() .. [[Mods\Services\DCS_Webhooker\core\?.lua;]]
 
 require("Webhooker_serialization")
 require("Webhooker_logging")
@@ -81,12 +81,16 @@ function Webhooker.Server.loadConfiguration()
 	
     local cfg = tools.safeDoFile(lfs.writedir() .. 'Config/Webhooker.lua', false)
 	
-    if (cfg and cfg.config) then
+    if (cfg and cfg.Webhooker and cfg.Webhooker.config) then
 		for k,v in pairs(Webhooker.Server.config) do
-			if cfg.config[k] ~= nil then
-				Webhooker.Server.config[k] = cfg.config[k]
+			if cfg.Webhooker.config[k] ~= nil then
+				Webhooker.Server.config[k] = cfg.Webhooker.config[k]
 			end
 		end        
+    end
+
+	if (cfg and cfg.Webhooker and cfg.Webhooker.templates) then
+		Webhooker.Server.templates = cfg.Webhooker.templates     
     end
 	
 	Webhooker.Server.saveConfiguration()
@@ -96,7 +100,8 @@ end
 		Write current config to file
 --]]----------------------------------------------------------------------------------
 function Webhooker.Server.saveConfiguration()
-    U.saveInFile(Webhooker.Server.config, 'config', lfs.writedir()..'Config/Webhooker.lua')
+	local toSave = {config = Webhooker.Server.config, templates = Webhooker.Server.templates}
+    U.saveInFile(toSave, 'Webhooker', lfs.writedir()..'Config/Webhooker.lua')
 end
 
 --------------------------------------------------------------------------------------

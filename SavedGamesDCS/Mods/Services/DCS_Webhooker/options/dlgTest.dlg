@@ -1,0 +1,185 @@
+
+local linePad = 4
+local lineHeight = 24
+local lineHeightTotal = lineHeight + linePad
+
+local pageMargin = 8
+local pageWidthTotal = 974
+local pageHeightTotal = 600
+local pageWidthContent = pageWidthTotal - (2 * pageMargin )
+
+local colPad = 4
+local columns = 8
+
+local colWidth = pageWidthContent / columns
+
+local gridBound = function (r,c,w,h)
+
+    return {
+        y = (r * lineHeightTotal) + linePad,
+        x = (colWidth * c) + colPad,
+        w = (w * colWidth) - (2 * colPad),
+        h = (h * lineHeightTotal )- (2 * linePad)
+    }
+end
+
+local dialogBound = function (r,c)    
+
+    return {
+        y = (pageHeightTotal/2) - (r * lineHeightTotal/2) + linePad,
+        x = (pageWidthTotal/2) - (colWidth * c/2) + colPad,
+        w = c * colWidth - (2 * colPad),
+        h = r * lineHeightTotal - (2 * linePad)
+    }
+end
+
+local styles = {
+    button = {
+        skin = {
+            params = {
+                name = "buttonSkinRedNew"
+            },
+            states = {
+                released = {
+                    [1] = {
+                        text = {
+                            color = "0xffffffff"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    combolist = {
+        skin = {
+            params = {
+                name = "comboListSkin_options"
+            }
+        }
+    },
+    editbox = {
+        skin = {
+            params = {
+                name = "editBoxSkin_ME",
+            }
+        }
+    },
+    label = {
+        skin = {
+            params = {
+                name = "staticOptionsTitleSkin"
+            },
+            states = {
+                released = {
+                    [1] = {
+                        text = {
+                            horzAlign = {
+                                type = "min"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    title = {
+        skin = {
+            params = {
+                name = "staticOptionsTitleSkin"
+            },
+            states = {
+                released = {
+                    [1] = {
+                        text = {
+                            horzAlign = {
+                                type = "min"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+-- Create Content
+dialog = {
+     type = "Window",
+    skin = {
+        params = {
+            name ="windowSkin"
+        }
+    },
+    params = {
+        enabled = true,
+        bounds = {
+            x = 0,
+            y = 0,
+            w = 1135,
+            h = 851
+        },
+        draggable = true,
+        enabled = true,
+        hasCursor = true,
+        lockFlow = false,
+        visible = true,
+        overlay = false,
+        tooltip = "",
+        zindex = 0,
+        zOrder = 0,
+        text = "Hello"
+    },
+    children = {
+          containerPlugin = {
+            type = "Panel",
+            skin = {
+                params = {
+                    name ="panelSkin"
+                }
+            },
+            params = {
+                enabled = true,
+                bounds = {
+                    x = 0,
+                    y = 0,
+                    w = pageWidthTotal,
+                    h = pageHeightTotal
+                },
+                visible = true,
+                tooltip = "",
+                zindex = 9,
+                text = ""
+            },
+            children = {
+                testButton = {
+                    type = "Button",
+                    skin = styles.button.skin,
+                    params = {
+                        enabled = true,
+                        bounds = gridBound(1,0,1,1),
+                        enabled = true,
+                        visible = true,
+                        tooltip = "",
+                        zindex = 6,
+                        text = "Button",
+                        tabOrder = 3
+                    }
+                },
+                testText = {
+                    type = "Static",
+                    skin = styles.label.skin,
+                    params = {
+                        enabled = true,
+                        bounds = gridBound(0,0,3,1),
+                        enabled = true,
+                        visible = true,
+                        tooltip = "",
+                        zindex = 6,
+                        text = "TEST",
+                        tabOrder = 3
+                    }
+                }
+            }
+        }
+    }
+}
