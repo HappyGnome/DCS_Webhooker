@@ -13,13 +13,15 @@ local columns = 8
 
 local colWidth = pageWidthContent / columns
 
-local gridBound = function (r,c,w,h)
+local gridBound = function (r,c,w,h,noPad)
 
+    local padCoeff = 1
+    if noPad then padCoeff = 0 end
     return {
-        y = (r * lineHeightTotal) + linePad,
-        x = (colWidth * c) + colPad,
-        w = (w * colWidth) - (2 * colPad),
-        h = (h * lineHeightTotal )- (2 * linePad)
+        y = (r * lineHeightTotal) + linePad * padCoeff,
+        x = (colWidth * c) + colPad * padCoeff,
+        w = (w * colWidth) - (2 * colPad) * padCoeff,
+        h = (h * lineHeightTotal )- (2 * linePad)* padCoeff
     }
 end
 
@@ -63,6 +65,167 @@ local styles = {
                 name = "editBoxSkin_ME",
             }
         }
+    },
+    grid = {
+        skin = {
+            params = {
+                headerHeight = 18,
+                horzLineColor = "0x00000059",
+                insets = {
+                    top = 1,
+                },
+                name = "gridSkinNewNew",
+                rowColors = {
+                    [1] = "0x2b2b2b00",
+                    [2] = "0x2b2b2b00",
+                },
+                vertLineColor = "0x00000059",
+            },
+            skins = {
+                header = {
+                    skinData = {
+                        states = {
+                            released = {
+                                [1] = {
+                                    bkg = {
+                                        center_center = "0xffffff26",
+                                        insets = {
+                                            bottom = "$nil$",
+                                            left = "$nil$",
+                                            right = "$nil$",
+                                            top = "$nil$",
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                headerCell = {
+                    skinData = {
+                        states = {
+                            released = {
+                                [1] = {
+                                    text = {
+                                        fontSize = 13,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            states = {
+                released = {
+                    [1] = {
+                        bkg = {
+                            center_bottom = "0x00000059",
+                            center_center = "0x00000040",
+                            center_top = "0x00000059",
+                            file = "$nil$",
+                            left_bottom = "0x00000059",
+                            left_center = "0x00000059",
+                            left_top = "0x00000059",
+                            right_bottom = "0x00000059",
+                            right_center = "0x00000059",
+                            right_top = "0x00000059",
+                        },
+                        text = {
+                            horzAlign = {
+                                type = "min",
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    },
+    gridHeader = {
+        skin = {
+            params = {
+                name = "gridHeaderCellSkin",
+            },
+            states = {
+                disabled = {
+                    [1] = {
+                        text = {
+                            color = "0x4d4c3dff",
+                            font = "DejaVuLGCSansCondensed.ttf",
+                            fontSize = 13,
+                            horzAlign = {
+                                offset = 15,
+                            },
+                        },
+                    },
+                },
+                hover = {
+                    [1] = {
+                        bkg = {
+                            right_bottom = "0xffffff4c",
+                            right_center = "0x00000059",
+                            right_top = "0xffffff4c",
+                        },
+                        text = {
+                            color = "0xffffffff",
+                            font = "DejaVuLGCSansCondensed.ttf",
+                            fontSize = 13,
+                            horzAlign = {
+                                offset = 10,
+                            },
+                            vertAlign = {
+                                offset = 0,
+                            },
+                        },
+                    },
+                },
+                pressed = {
+                    [1] = {
+                        bkg = {
+                            right_bottom = "0xffffff4c",
+                            right_center = "0x00000059",
+                            right_top = "0xffffff4c",
+                        },
+                        text = {
+                            color = "0xffffffff",
+                            font = "DejaVuLGCSansCondensed.ttf",
+                            fontSize = 13,
+                            horzAlign = {
+                                offset = 10,
+                            },
+                            vertAlign = {
+                                offset = 0,
+                            },
+                        },
+                    },
+                },
+                released = {
+                    [1] = {
+                        bkg = {
+                            insets = {
+                                bottom = "$nil$",
+                                left = "$nil$",
+                                top = "$nil$",
+                            },
+                            right_bottom = "0xffffff4c",
+                            right_center = "0x00000059",
+                            right_top = "0xffffff4c",
+                        },
+                        text = {
+                            color = "0xffffffff",
+                            font = "DejaVuLGCSansCondensed.ttf",
+                            fontSize = 13,
+                            horzAlign = {
+                                offset = 10,
+                            },
+                            lineThroughHeight = "$nil$",
+                            vertAlign = {
+                                offset = 0,
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
     label = {
         skin = {
@@ -273,6 +436,21 @@ dialog = {
                                 tabOrder = 3
                             }
                         },
+
+                        --Row 2
+                        btnStringsManage = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(2,1,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Manage Strings",
+                                tabOrder = 3
+                            }
+                        },
                     },
                 },
                 pnlTemplateEdit = {
@@ -323,7 +501,7 @@ dialog = {
                                 tabOrder = 3,
                                 multiline = true,
                                 readOnly = false,
-                                teexWrapping = true,
+                                textWrapping = true,
                                 password = false,
                                 numeric = false
                             }
@@ -447,7 +625,7 @@ dialog = {
                                 tabOrder = 3,
                                 multiline = true,
                                 readOnly = false,
-                                teexWrapping = true,
+                                textWrapping = true,
                                 password = false,
                                 numeric = false
                             }
@@ -530,7 +708,7 @@ dialog = {
                                 tabOrder = 3,
                                 multiline = true,
                                 readOnly = false,
-                                teexWrapping = true,
+                                textWrapping = true,
                                 password = false,
                                 numeric = false
                             }
@@ -575,7 +753,7 @@ dialog = {
                                 tabOrder = 3,
                                 multiline = true,
                                 readOnly = false,
-                                teexWrapping = true,
+                                textWrapping = true,
                                 password = false,
                                 numeric = false
                             }
@@ -610,6 +788,154 @@ dialog = {
 
                     },
                 },
+                pnlEditStrings = {
+                    type = "Panel",
+                    skin = {
+                        params = {
+                            name ="panelSkin"
+                        }
+                    },
+                    params = {
+                        enabled = true,
+                        bounds = {
+                            x = 0,
+                            y = 0,
+                            w = pageWidthTotal,
+                            h = pageHeightTotal
+                        },
+                        visible = false,
+                        tooltip = "",
+                        zindex = 9,
+                        text = ""
+                    },
+                    children = {                       
+                        gridStrings = {
+                            type = "Grid",
+                            skin = styles.grid.skin,
+                            params = {
+                                bounds = gridBound(1,1,6,12),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Grid",
+                                tabOrder = 3
+                            },
+                            children = {                       
+                                colHdr1 = {
+                                    type = "GridHeaderCell",
+                                    skin = styles.gridHeader.skin,
+                                    params = {
+                                        bounds = gridBound(0,0,2,1,true),
+                                        enabled = true,
+                                        visible = true,
+                                        tooltip = "",
+                                        zindex = 8,
+                                        text = "Key",
+                                        tabOrder = 3
+                                    }
+                                },
+                                colHdr2 = {
+                                    type = "GridHeaderCell",
+                                    skin = styles.gridHeader.skin,
+                                    params = {
+                                        bounds = gridBound(2,0,4,1,true),
+                                        enabled = true,
+                                        visible = true,
+                                        tooltip = "",
+                                        zindex = 8,
+                                        text = "String",
+                                        tabOrder = 3
+                                    }
+                                },
+                            },
+                        },
+                        --Edit row
+                        lblEdit = {
+                            type = "Static",
+                            skin = styles.label.skin,
+                            params = {
+                                bounds = gridBound(13,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Edit",
+                                tabOrder = 3
+                            }
+                        },
+                        edtKey = {
+                            type = "EditBox",
+                            skin = styles.editbox.skin,
+                            params = {
+                                bounds = gridBound(13,1,2,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3,
+                                readOnly = false,
+                            }
+                        },
+                        edtString = {
+                            type = "EditBox",
+                            skin = styles.editbox.skin,
+                            params = {
+                                bounds = gridBound(13,3,4,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3
+                            }
+                        },
+
+                        --Row 3
+                        btnStringNew = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(14,4,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "New",
+                                tabOrder = 3
+                            }
+                        },
+                        btnStringSubmit = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(14,5,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Submit",
+                                tabOrder = 3
+                            }
+                        },
+                        btnStringDel = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(14,6,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Delete",
+                                tabOrder = 3
+                            }
+                        },
+                    
+                    },
+                },
+                
             }
         }
     }

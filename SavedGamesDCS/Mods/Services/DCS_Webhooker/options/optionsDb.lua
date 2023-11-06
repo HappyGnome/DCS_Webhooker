@@ -2,6 +2,7 @@ local DbOption = require("Options.DbOption")
 local DialogLoader		= require('DialogLoader')
 local lfs		= require('lfs')
 local ListBoxItem		= require('ListBoxItem')
+local MsgWindow 		= require('MsgWindow')
 
 local webhookerDir = lfs.writedir()..[[Mods\Services\DCS_Webhooker]]
 
@@ -50,6 +51,29 @@ local resetComboListFromTable = function(cmb,tbl)
     return ret
 end
 
+local resetKVGridFromTable = function(grid,tbl)
+
+    if not grid or not tbl then return end
+
+    grid:clearRows()
+
+    local row = 0
+    for k,v in pairs(tbl) do
+        grid:insertRow(20)
+       
+        -- Col 1
+        local cell = Static.new(k)
+
+        grid:setCell(0,row,cell)
+
+        --Col 2
+        cell = Static.new(v)
+        grid:setCell(1,row,cell)
+
+        row = row + 1
+    end 
+end
+
 --------------------------------------------------------------------------------------
 -- NAVIGATION
 --------------------------------------------------------------------------------------
@@ -67,12 +91,14 @@ local GoPageTemplateEdit = function(dialog)
     dialog.pnlTemplateEdit:setVisible(true)
     dialog.pnlTemplateSelect:setVisible(false)
     dialog.pnlWebhookEdit:setVisible(false)
+    dialog.pnlEditStrings:setVisible(false)
 end
 
 local GoPageTemplateSelect = function(dialog)
     dialog.pnlTemplateEdit:setVisible(false)
     dialog.pnlTemplateSelect:setVisible(true)
     dialog.pnlWebhookEdit:setVisible(false)
+    dialog.pnlEditStrings:setVisible(false)
 end
 
 local GoPageWebhookEdit = function(dialog)
@@ -84,6 +110,30 @@ local GoPageWebhookEdit = function(dialog)
     dialog.pnlTemplateEdit:setVisible(false)
     dialog.pnlTemplateSelect:setVisible(false)
     dialog.pnlWebhookEdit:setVisible(true)
+    dialog.pnlEditStrings:setVisible(false)
+end
+
+local GoPageStringsManage = function(dialog)
+
+    dialog.pnlTemplateEdit:setVisible(false)
+    dialog.pnlTemplateSelect:setVisible(false)
+    dialog.pnlWebhookEdit:setVisible(false)
+    dialog.pnlEditStrings:setVisible(true)
+end
+
+local RequestConfirm = function(action, text)
+    local optYes = "YES"
+    local optNo = "NO"
+
+    local handler = MsgWindow.question(_(text), _('WARNING'), optYes, optNo)
+    function handler:onChange(btnTxt)
+        if btnTxt == optYes then
+            action()
+        end
+        handler:close()
+    end
+
+    handler:show()
 end
 
 local StashWorkingTemplate = function(dialog)
@@ -104,6 +154,11 @@ end
 local ResetWebhookListCombo = function(dialog)
     resetComboListFromTable(dialog.pnlTemplateEdit.cmbWebhook,Webhooker.Server.webhooks)
 end
+
+local ResetStringGrid = function(dialog)
+    resetKVGridFromTable(dialog.pnlEditStrings.gridStrings,Webhooker.Server.strings)
+end
+
 --------------------------------------------------------------------------------------
 -- EVENT HANDLERS
 --------------------------------------------------------------------------------------
@@ -247,6 +302,41 @@ local handleWebhookSave = function(dialog)
     GoPageTemplateEdit(dialog)
 end
 
+local handleStringRowSelect = function(dialog,row)
+    if row == nil or row < 0 then return end
+
+    dialog.pnlEditStrings.gridStrings:selectRow(row)
+
+    local cell = dialog.pnlEditStrings.gridStrings:getCell(0,row)
+    dialog.pnlEditStrings.edtKey:setText(cell:getText())
+
+    cell = dialog.pnlEditStrings.gridStrings:getCell(1,row)
+    dialog.pnlEditStrings.edtString:setText(cell:getText())
+
+    dialog.pnlEditStrings.gridStrings:setEnabled(false)
+end
+local handleStringRowNew = function(dialog)
+
+    dialog.pnlEditStrings.gridStrings:setEnabled(false)
+
+    dialog.pnlEditStrings.edtKey:setText("")
+    dialog.pnlEditStrings.edtString:setText("")
+
+    ResetStringGrid(dialog)
+end
+
+local handleStringRowSubmit = function(dialog)
+
+    --TODO: validate
+    Webhooker.Server.strings[dialog.pnlEditStrings.edtKey:getText()] = dialog.pnlEditStrings.edtString:getText()
+    Webhooker.Server.saveConfiguration()
+
+    dialog.pnlEditStrings.gridStrings:setEnabled(true)
+
+    ResetStringGrid(dialog)
+end
+
+
 --------------------------------------------------------------------------------------
 -- CALLBACKS
 --------------------------------------------------------------------------------------
@@ -254,52 +344,50 @@ local showDialog = function(dialog)
     if dialog == nil then return end
 
     -- Template select controls
-    if dialog.pnlTemplateSelect.btnTemplateAdd then
-        function dialog.pnlTemplateSelect.btnTemplateAdd:onChange() handleTemplateAdd(dialog) end
-    end
+    function dialog.pnlTemplateSelect.btnTemplateAdd:onChange() handleTemplateAdd(dialog) end
 
-    if dialog.pnlTemplateSelect.btnTemplateEdit then
-        function dialog.pnlTemplateSelect.btnTemplateEdit:onChange() handleTemplateEdit(dialog) end
-    end
-
-    if dialog.pnlTemplateSelect.btnTemplateDel then
-        function dialog.pnlTemplateSelect.btnTemplateDel:onChange() handleTemplateDelete(dialog) end
-    end
+    function dialog.pnlTemplateSelect.btnTemplateEdit:onChange() handleTemplateEdit(dialog) end
+    
+    function dialog.pnlTemplateSelect.btnStringsManage:onChange() GoPageStringsManage(dialog) end
+       
+    function dialog.pnlTemplateSelect.btnTemplateDel:onChange() 
+            RequestConfirm(function() handleTemplateDelete(dialog) end, "Delete template?")
+    end   
 
     -- Template edit controls
-    if dialog.pnlTemplateEdit.btnCancelTemplate then
-        function dialog.pnlTemplateEdit.btnCancelTemplate:onChange() handleTemplateCancel(dialog) end
-    end
+    function dialog.pnlTemplateEdit.btnCancelTemplate:onChange() handleTemplateCancel(dialog) end
 
-    if dialog.pnlTemplateEdit.btnSaveTemplate then
-        function dialog.pnlTemplateEdit.btnSaveTemplate:onChange() handleTemplateSave(dialog) end
-    end
-
-    if dialog.pnlTemplateEdit.btnWebhookAdd then
-        function dialog.pnlTemplateEdit.btnWebhookAdd:onChange() handleWebhookAdd(dialog) end
-    end
-
-    if dialog.pnlTemplateEdit.btnWebhookEdit then
-        function dialog.pnlTemplateEdit.btnWebhookEdit:onChange() handleWebhookEdit(dialog) end
-    end
-
-    if dialog.pnlTemplateEdit.btnWebhookDel then
-        function dialog.pnlTemplateEdit.btnWebhookDel:onChange() handleWebhookDelete(dialog) end
+    function dialog.pnlTemplateEdit.btnSaveTemplate:onChange() handleTemplateSave(dialog) end
+    function dialog.pnlTemplateEdit.btnWebhookAdd:onChange() handleWebhookAdd(dialog) end
+    function dialog.pnlTemplateEdit.btnWebhookEdit:onChange() handleWebhookEdit(dialog) end
+    function dialog.pnlTemplateEdit.btnWebhookDel:onChange() 
+            RequestConfirm(function() handleWebhookDelete(dialog) end,"Delete webhook?")
     end
 
     -- Webhook edit controls
-    if dialog.pnlWebhookEdit.btnWebhookCancel then
-        function dialog.pnlWebhookEdit.btnWebhookCancel:onChange() handleWebhookCancel(dialog) end
+    function dialog.pnlWebhookEdit.btnWebhookCancel:onChange() handleWebhookCancel(dialog) end
+    function dialog.pnlWebhookEdit.btnWebhookSave:onChange() handleWebhookSave(dialog) end
+
+
+    -- String management
+    function dialog.pnlEditStrings.gridStrings:onMouseDown(x,y,btn)
+        if btn == 1 then
+            local col, row = self:getMouseCursorColumnRow(x,y)
+
+            if row >= 0 then
+                handleStringRowSelect(dialog,row)
+            end
+        end
     end
 
-    if dialog.pnlWebhookEdit.btnWebhookSave then
-        function dialog.pnlWebhookEdit.btnWebhookSave:onChange() handleWebhookSave(dialog) end
-    end
+    function dialog.pnlEditStrings.btnStringNew:onChange() handleStringRowNew(dialog) end
+    function dialog.pnlEditStrings.btnStringSubmit:onChange() handleStringRowSubmit(dialog) end
 
     -- Initialize lists
     
     ResetWebhookListCombo(dialog)
     ResetTemplateListCombo(dialog)
+    ResetStringGrid(dialog)
     
     -- dialog.cmbTemplate:clear()
     -- local first = true
