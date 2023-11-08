@@ -79,6 +79,7 @@ local styles = {
                     [1] = "0x2b2b2b00",
                     [2] = "0x2b2b2b00",
                 },
+                selectionColor = "0x3095ff40",
                 vertLineColor = "0x00000059",
             },
             skins = {
@@ -105,9 +106,14 @@ local styles = {
                     skinData = {
                         states = {
                             released = {
-                                [1] = {
+                                [1] = {                                    
                                     text = {
+                                        color = "0x4d4c3dff",
+                                        font = "DejaVuLGCSansCondensed.ttf",
                                         fontSize = 13,
+                                        horzAlign = {
+                                            offset = 15,
+                                        },
                                     },
                                 },
                             },
@@ -130,15 +136,64 @@ local styles = {
                             right_center = "0x00000059",
                             right_top = "0x00000059",
                         },
+                    },
+                },
+            },
+        }
+    },
+    gridCell ={
+        skin = {
+            params = {
+                name = "staticSkin",
+            },
+            states = {
+                disabled = {
+                    [1] = {
                         text = {
+                            color = "0x555555ff",
+                            font = "DejaVuLGCSansCondensed.ttf",
+                            fontSize = 13,
                             horzAlign = {
-                                type = "min",
+                                offset = 15,
+                            },
+                            lineHeight = 0,
+                        },
+                    },
+                },
+                released = {
+                    [1] = {
+                        text = {
+                            color = "0xe0dedaff",
+                            font = "DejaVuLGCSansCondensed.ttf",
+                            fontSize = 13,
+                            horzAlign = {
+                                offset = 15,
+                            },
+                            lineHeight = 0,
+                            vertAlign = {
+                                type = "middle",
+                            },
+                        },
+                    },
+                },
+                pressed = {
+                    [1] = {
+                        text = {
+                            color = "0xffff00aff",
+                            font = "DejaVuLGCSansCondensed.ttf",
+                            fontSize = 13,
+                            horzAlign = {
+                                offset = 15,
+                            },
+                            lineHeight = 0,
+                            vertAlign = {
+                                type = "middle",
                             },
                         },
                     },
                 },
             },
-        }
+        },
     },
     gridHeader = {
         skin = {
@@ -632,7 +687,7 @@ dialog = {
                         },
 
                         --Row 4
-                        btnCancelTemplate = {
+                        btnSaveTemplate = {
                             type = "Button",
                             skin = styles.button.skin,
                             params = {
@@ -641,11 +696,11 @@ dialog = {
                                 visible = true,
                                 tooltip = "",
                                 zindex = 8,
-                                text = "Cancel",
+                                text = "Save",
                                 tabOrder = 3
                             }
                         },
-                        btnSaveTemplate = {
+                        btnCancelTemplate = {
                             type = "Button",
                             skin = styles.button.skin,
                             params = {
@@ -654,7 +709,7 @@ dialog = {
                                 visible = true,
                                 tooltip = "",
                                 zindex = 8,
-                                text = "Save",
+                                text = "Cancel",
                                 tabOrder = 3
                             }
                         },
@@ -759,7 +814,7 @@ dialog = {
                             }
                         },
                         --Row 3
-                        btnWebhookCancel = {
+                        btnWebhookSave = {
                             type = "Button",
                             skin = styles.button.skin,
                             params = {
@@ -768,11 +823,11 @@ dialog = {
                                 visible = true,
                                 tooltip = "",
                                 zindex = 8,
-                                text = "Cancel",
+                                text = "Save",
                                 tabOrder = 3
                             }
                         },
-                        btnWebhookSave = {
+                        btnWebhookCancel = {
                             type = "Button",
                             skin = styles.button.skin,
                             params = {
@@ -781,14 +836,13 @@ dialog = {
                                 visible = true,
                                 tooltip = "",
                                 zindex = 8,
-                                text = "Save",
+                                text = "Cancel",
                                 tabOrder = 3
                             }
                         },
-
                     },
                 },
-                pnlEditStrings = {
+                pnlStringList = {
                     type = "Panel",
                     skin = {
                         params = {
@@ -797,18 +851,26 @@ dialog = {
                     },
                     params = {
                         enabled = true,
-                        bounds = {
-                            x = 0,
-                            y = 0,
-                            w = pageWidthTotal,
-                            h = pageHeightTotal
-                        },
+                        bounds = gridBound(0,0,columns,14,true),
                         visible = false,
                         tooltip = "",
                         zindex = 9,
                         text = ""
                     },
-                    children = {                       
+                    children = {         
+                        btnStringCancel = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(1,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Back",
+                                tabOrder = 3
+                            }
+                        },              
                         gridStrings = {
                             type = "Grid",
                             skin = styles.grid.skin,
@@ -818,7 +880,7 @@ dialog = {
                                 visible = true,
                                 tooltip = "",
                                 zindex = 8,
-                                text = "Grid",
+                                text = "",
                                 tabOrder = 3
                             },
                             children = {                       
@@ -850,12 +912,87 @@ dialog = {
                                 },
                             },
                         },
+                        staticGridCell = {
+                            params = {
+                                angle = 0,
+                                bounds = gridBound(0,0,1,1),
+                                enabled = true,
+                                pivotPoint = {
+                                    x = 0,
+                                    y = 0,
+                                },
+                                text = "staticGridCell",
+                                tooltip = "",
+                                visible = false,
+                                zindex = 1,
+                            },
+                            skin = styles.gridCell.skin,
+                            type = "Static",
+                        },
+                        -- Row 2
+                        btnStringNew = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(13,4,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "New",
+                                tabOrder = 3
+                            }
+                        }, 
+                        btnStringEdit = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(13,5,1,1),
+                                enabled = false,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Edit",
+                                tabOrder = 3
+                            }
+                        }, 
+                        btnStringDel = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(13,6,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Delete",
+                                tabOrder = 3
+                            }
+                        },
+                    }
+                },
+                pnlStringEdit = {
+                    type = "Panel",
+                    skin = {
+                        params = {
+                            name ="panelSkin"
+                        }
+                    },
+                    params = {
+                        enabled = false,
+                        bounds = gridBound(15,0,columns,5,true),
+                        visible = false,
+                        tooltip = "",
+                        zindex = 9,
+                        text = ""
+                    },
+                    children = { 
                         --Edit row
                         lblEdit = {
                             type = "Static",
                             skin = styles.label.skin,
                             params = {
-                                bounds = gridBound(13,0,1,1),
+                                bounds = gridBound(0,0,1,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
@@ -868,7 +1005,7 @@ dialog = {
                             type = "EditBox",
                             skin = styles.editbox.skin,
                             params = {
-                                bounds = gridBound(13,1,2,1),
+                                bounds = gridBound(0,1,2,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
@@ -882,7 +1019,7 @@ dialog = {
                             type = "EditBox",
                             skin = styles.editbox.skin,
                             params = {
-                                bounds = gridBound(13,3,4,1),
+                                bounds = gridBound(0,3,4,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
@@ -892,25 +1029,12 @@ dialog = {
                             }
                         },
 
-                        --Row 3
-                        btnStringNew = {
-                            type = "Button",
-                            skin = styles.button.skin,
-                            params = {
-                                bounds = gridBound(14,4,1,1),
-                                enabled = true,
-                                visible = true,
-                                tooltip = "",
-                                zindex = 8,
-                                text = "New",
-                                tabOrder = 3
-                            }
-                        },
+                        --Row 2
                         btnStringSubmit = {
                             type = "Button",
                             skin = styles.button.skin,
                             params = {
-                                bounds = gridBound(14,5,1,1),
+                                bounds = gridBound(1,5,1,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
@@ -918,24 +1042,22 @@ dialog = {
                                 text = "Submit",
                                 tabOrder = 3
                             }
-                        },
-                        btnStringDel = {
+                        },  
+                        btnStringCancel = {
                             type = "Button",
                             skin = styles.button.skin,
                             params = {
-                                bounds = gridBound(14,6,1,1),
+                                bounds = gridBound(1,6,1,1),
                                 enabled = true,
                                 visible = true,
                                 tooltip = "",
                                 zindex = 8,
-                                text = "Delete",
+                                text = "Cancel",
                                 tabOrder = 3
                             }
-                        },
-                    
+                        },                   
                     },
-                },
-                
+                },                
             }
         }
     }

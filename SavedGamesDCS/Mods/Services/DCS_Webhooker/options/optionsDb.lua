@@ -26,6 +26,8 @@ local workingWebhook = {
 	url = ""
 }
 
+local workingEditString = {key = "",value = ""}
+
 --------------------------------------------------------------------------------------
 -- WIDGET HELPERS
 --------------------------------------------------------------------------------------
@@ -51,24 +53,36 @@ local resetComboListFromTable = function(cmb,tbl)
     return ret
 end
 
-local resetKVGridFromTable = function(grid,tbl)
+local resetKVGridFromTable = function(grid,tbl,skins)
 
     if not grid or not tbl then return end
+
+    local sorted = {}
+
+    for k,v in pairs(tbl) do
+        sorted[#sorted + 1] = {k,v}
+    end
+
+    table.sort(sorted,function(a,b) return string.upper(a[1]) < string.upper(b[1]) end)
 
     grid:clearRows()
 
     local row = 0
-    for k,v in pairs(tbl) do
+    for i,v in ipairs(sorted) do
         grid:insertRow(20)
-       
+        local col = 1
+
         -- Col 1
-        local cell = Static.new(k)
+        local cell = Static.new(v[col])
+        if skins and skins[col] then cell:setSkin(skins[col]) end
 
-        grid:setCell(0,row,cell)
+        grid:setCell(col-1,row,cell)
 
+        col = col + 1
         --Col 2
-        cell = Static.new(v)
-        grid:setCell(1,row,cell)
+        cell = Static.new(v[col])
+        if skins and skins[col] then cell:setSkin(skins[col]) end
+        grid:setCell(col-1,row,cell)
 
         row = row + 1
     end 
@@ -91,14 +105,16 @@ local GoPageTemplateEdit = function(dialog)
     dialog.pnlTemplateEdit:setVisible(true)
     dialog.pnlTemplateSelect:setVisible(false)
     dialog.pnlWebhookEdit:setVisible(false)
-    dialog.pnlEditStrings:setVisible(false)
+    dialog.pnlStringList:setVisible(false)
+    dialog.pnlStringEdit:setVisible(false)
 end
 
 local GoPageTemplateSelect = function(dialog)
     dialog.pnlTemplateEdit:setVisible(false)
     dialog.pnlTemplateSelect:setVisible(true)
     dialog.pnlWebhookEdit:setVisible(false)
-    dialog.pnlEditStrings:setVisible(false)
+    dialog.pnlStringList:setVisible(false)
+    dialog.pnlStringEdit:setVisible(false)
 end
 
 local GoPageWebhookEdit = function(dialog)
@@ -110,7 +126,8 @@ local GoPageWebhookEdit = function(dialog)
     dialog.pnlTemplateEdit:setVisible(false)
     dialog.pnlTemplateSelect:setVisible(false)
     dialog.pnlWebhookEdit:setVisible(true)
-    dialog.pnlEditStrings:setVisible(false)
+    dialog.pnlStringList:setVisible(false)
+    dialog.pnlStringEdit:setVisible(false)
 end
 
 local GoPageStringsManage = function(dialog)
@@ -118,7 +135,14 @@ local GoPageStringsManage = function(dialog)
     dialog.pnlTemplateEdit:setVisible(false)
     dialog.pnlTemplateSelect:setVisible(false)
     dialog.pnlWebhookEdit:setVisible(false)
-    dialog.pnlEditStrings:setVisible(true)
+    dialog.pnlStringList:setVisible(true)
+    dialog.pnlStringEdit:setVisible(true)
+end
+
+local GoStringEditMode = function(dialog,edit)
+
+    dialog.pnlStringEdit:setEnabled(edit)
+    dialog.pnlStringList:setEnabled(not edit)
 end
 
 local RequestConfirm = function(action, text)
@@ -130,6 +154,17 @@ local RequestConfirm = function(action, text)
         if btnTxt == optYes then
             action()
         end
+        handler:close()
+    end
+
+    handler:show()
+end
+
+local DenyMsgBox = function(text)
+    local optOK = "OK"
+
+    local handler = MsgWindow.question(_(text), _('WARNING'), optOK)
+    function handler:onChange(btnTxt)
         handler:close()
     end
 
@@ -156,9 +191,17 @@ local ResetWebhookListCombo = function(dialog)
 end
 
 local ResetStringGrid = function(dialog)
-    resetKVGridFromTable(dialog.pnlEditStrings.gridStrings,Webhooker.Server.strings)
+    resetKVGridFromTable(
+        dialog.pnlStringList.gridStrings,
+        Webhooker.Server.strings, 
+        {dialog.pnlStringList.staticGridCell:getSkin(),dialog.pnlStringList.staticGridCell:getSkin()})
 end
 
+local ClearStringSelection = function(dialog)
+    workingEditString = {key = "",value = ""}
+    dialog.pnlStringList.gridStrings:selectRow(-1)
+    dialog.pnlStringList.btnStringEdit:setEnabled(false)
+end
 --------------------------------------------------------------------------------------
 -- EVENT HANDLERS
 --------------------------------------------------------------------------------------
@@ -302,41 +345,95 @@ local handleWebhookSave = function(dialog)
     GoPageTemplateEdit(dialog)
 end
 
-local handleStringRowSelect = function(dialog,row)
-    if row == nil or row < 0 then return end
+--String list
+local handleStringListSelect = function(dialog,row)
+    if row == nil or row < 0 then 
+        dialog.pnlStringList.btnStringEdit:setEnabled(false)
+        return 
+    end
 
-    dialog.pnlEditStrings.gridStrings:selectRow(row)
+    dialog.pnlStringList.gridStrings:selectRow(row)
 
-    local cell = dialog.pnlEditStrings.gridStrings:getCell(0,row)
-    dialog.pnlEditStrings.edtKey:setText(cell:getText())
+    local cell = dialog.pnlStringList.gridStrings:getCell(0,row)
+    workingEditString.key = cell:getText()
 
-    cell = dialog.pnlEditStrings.gridStrings:getCell(1,row)
-    dialog.pnlEditStrings.edtString:setText(cell:getText())
+    cell = dialog.pnlStringList.gridStrings:getCell(1,row)
+    workingEditString.value = cell:getText()
 
-    dialog.pnlEditStrings.gridStrings:setEnabled(false)
-end
-local handleStringRowNew = function(dialog)
-
-    dialog.pnlEditStrings.gridStrings:setEnabled(false)
-
-    dialog.pnlEditStrings.edtKey:setText("")
-    dialog.pnlEditStrings.edtString:setText("")
-
-    ResetStringGrid(dialog)
+    dialog.pnlStringList.btnStringEdit:setEnabled(true)
 end
 
-local handleStringRowSubmit = function(dialog)
+local handleStringListNew = function(dialog)
 
-    --TODO: validate
-    Webhooker.Server.strings[dialog.pnlEditStrings.edtKey:getText()] = dialog.pnlEditStrings.edtString:getText()
-    Webhooker.Server.saveConfiguration()
+    dialog.pnlStringEdit.edtKey:setText("")
+    dialog.pnlStringEdit.edtString:setText("")
+    ClearStringSelection(dialog)
 
-    dialog.pnlEditStrings.gridStrings:setEnabled(true)
-
-    ResetStringGrid(dialog)
+    GoStringEditMode(dialog,true)
 end
 
+local handleStringListEdit = function(dialog)
 
+    dialog.pnlStringEdit.edtKey:setText(workingEditString.key)
+    dialog.pnlStringEdit.edtString:setText(workingEditString.value)
+
+    GoStringEditMode(dialog,true)
+end
+
+local handleStringListDel = function(dialog)
+
+    local newKey = dialog.pnlStringEdit.edtKey:getText()
+
+    if newKey == nil then return end
+
+    local onSuccess = function()        
+        Webhooker.Server.strings[newKey] = nil
+        Webhooker.Server.saveConfiguration()
+
+        ResetStringGrid(dialog)
+        ClearStringSelection(dialog)
+    end
+
+    RequestConfirm(onSuccess,"Delete string for key \"" .. newKey .. "\"")
+end
+
+local handleStringListCancel = function(dialog)
+    GoPageTemplateSelect(dialog)
+end
+
+-- String edit
+local handleStringEditSubmit = function(dialog)
+
+    local newKey = dialog.pnlStringEdit.edtKey:getText()
+    local newValue = dialog.pnlStringEdit.edtString:getText()
+
+    if (newKey == nil or newKey == "") then
+        DenyMsgBox("Key invalid")
+        return
+    end
+
+    local onSuccess = function()        
+        Webhooker.Server.strings[newKey] = newValue
+        Webhooker.Server.saveConfiguration()
+
+        GoStringEditMode(dialog,false)
+        dialog.pnlStringEdit.edtKey:setText("")
+        dialog.pnlStringEdit.edtString:setText("")
+        ResetStringGrid(dialog)
+    end
+
+    if (newKey ~= workingEditString.key and Webhooker.Server.strings[newKey] ~= nil) then
+        RequestConfirm(onSuccess,"Replace existing string for key \"" .. newKey .. "\"")
+        return
+    end
+
+    onSuccess()
+
+end
+
+local handleStringEditCancel = function(dialog)
+    GoStringEditMode(dialog,false)
+end
 --------------------------------------------------------------------------------------
 -- CALLBACKS
 --------------------------------------------------------------------------------------
@@ -369,19 +466,25 @@ local showDialog = function(dialog)
     function dialog.pnlWebhookEdit.btnWebhookSave:onChange() handleWebhookSave(dialog) end
 
 
-    -- String management
-    function dialog.pnlEditStrings.gridStrings:onMouseDown(x,y,btn)
+    -- String list
+    function dialog.pnlStringList.gridStrings:onMouseDown(x,y,btn)
         if btn == 1 then
             local col, row = self:getMouseCursorColumnRow(x,y)
 
             if row >= 0 then
-                handleStringRowSelect(dialog,row)
+                handleStringListSelect(dialog,row)
             end
         end
     end
 
-    function dialog.pnlEditStrings.btnStringNew:onChange() handleStringRowNew(dialog) end
-    function dialog.pnlEditStrings.btnStringSubmit:onChange() handleStringRowSubmit(dialog) end
+    function dialog.pnlStringList.btnStringNew:onChange() handleStringListNew(dialog) end
+    function dialog.pnlStringList.btnStringEdit:onChange() handleStringListEdit(dialog) end
+    function dialog.pnlStringList.btnStringDel:onChange() handleStringListDel(dialog) end
+    function dialog.pnlStringList.btnStringCancel:onChange() handleStringListCancel(dialog) end
+
+    --String edit
+    function dialog.pnlStringEdit.btnStringSubmit:onChange() handleStringEditSubmit(dialog) end
+    function dialog.pnlStringEdit.btnStringCancel:onChange() handleStringEditCancel(dialog) end
 
     -- Initialize lists
     
