@@ -1,8 +1,8 @@
-local DbOption = require("Options.DbOption")
-local DialogLoader		= require('DialogLoader')
-local lfs		= require('lfs')
-local ListBoxItem		= require('ListBoxItem')
-local MsgWindow 		= require('MsgWindow')
+local DbOption      = require("Options.DbOption")
+local DialogLoader	= require('DialogLoader')
+local lfs		    = require('lfs')
+local ListBoxItem	= require('ListBoxItem')
+local MsgWindow 	= require('MsgWindow')
 
 local webhookerDir = lfs.writedir()..[[Mods\Services\DCS_Webhooker]]
 
@@ -27,6 +27,83 @@ local workingWebhook = {
 }
 
 local workingEditString = {key = "",value = ""}
+
+--------------------------------------------------------------------------------------
+-- TEST METHODS
+--------------------------------------------------------------------------------------
+local countTemplateParams = function(rawTemplate)
+    local replaceIndices = {}
+
+    if rawTemplate == nil then return 0 end
+
+    local at = 1
+    local atEnd = string.len(rawTemplate)
+    while at <= atEnd do
+        local found = string.find(rawTemplate,"%%", at) -- "%" (%% in lua regexp) starts replaceable token
+
+        if found == nil then
+            break
+        end
+        
+        if string.sub(rawTemplate,found,found+1) == "%%" then
+            at = found + 2
+        else
+            local tok = ""
+            local foundEnd = string.find(rawTemplate,"%s", found + 1)
+            if foundEnd  == nil then
+                tok = string.sub(rawTemplate, found + 1, atEnd)
+                at = atEnd + 1
+            else
+                tok = string.sub(rawTemplate, found + 1, foundEnd - 1)
+                at = foundEnd + 1
+            end
+
+            local tokNum = tonumber(tok)
+
+            if type(tokNum) == 'number' then
+                replaceIndices[tokNum] = true
+            end
+        end
+    end
+    return #replaceIndices
+end
+
+local doTestSend = function(templateKey, args)
+
+    if Webhooker.Server.templates[templateKey] == nil then
+        error("Invalid template key: " .. templateKey)
+    end
+    local template = Webhooker.Server.templates[templateKey]
+    
+    local task = Webhooker.Server.trySendToWebhook(template.webhookKey,template.bodyRaw,args)
+    task:Await(1000)
+end
+
+Webhooker.send = function(templateKey, ...) 
+    Webhooker.Server.ensureLuaWorker()
+
+    local ok,err = pcall(doTestSend,templateKey, arg)
+
+    if Webhooker.Server.worker ~= nil then
+		Webhooker.Server.worker:Stop()	
+    end
+
+    if not ok then
+        error(err)
+    end
+end
+
+Webhooker.func = function(funcKey, ...)
+    return "<" .. funcKey .. " result>"
+end
+
+Webhooker.string = function(stringKey)
+    return Webhooker.Server.strings[stringKey]
+end
+
+Webhooker.player = function(playerKey)
+    return playerKey
+end
 
 --------------------------------------------------------------------------------------
 -- WIDGET HELPERS
@@ -107,6 +184,7 @@ local GoPageTemplateEdit = function(dialog)
     dialog.pnlWebhookEdit:setVisible(false)
     dialog.pnlStringList:setVisible(false)
     dialog.pnlStringEdit:setVisible(false)
+    dialog.pnlTemplateTest:setVisible(false)
 end
 
 local GoPageTemplateSelect = function(dialog)
@@ -115,6 +193,7 @@ local GoPageTemplateSelect = function(dialog)
     dialog.pnlWebhookEdit:setVisible(false)
     dialog.pnlStringList:setVisible(false)
     dialog.pnlStringEdit:setVisible(false)
+    dialog.pnlTemplateTest:setVisible(false)
 end
 
 local GoPageWebhookEdit = function(dialog)
@@ -128,6 +207,7 @@ local GoPageWebhookEdit = function(dialog)
     dialog.pnlWebhookEdit:setVisible(true)
     dialog.pnlStringList:setVisible(false)
     dialog.pnlStringEdit:setVisible(false)
+    dialog.pnlTemplateTest:setVisible(false)
 end
 
 local GoPageStringsManage = function(dialog)
@@ -137,6 +217,17 @@ local GoPageStringsManage = function(dialog)
     dialog.pnlWebhookEdit:setVisible(false)
     dialog.pnlStringList:setVisible(true)
     dialog.pnlStringEdit:setVisible(true)
+    dialog.pnlTemplateTest:setVisible(false)
+end
+
+local GoPageTest = function(dialog)
+
+    dialog.pnlTemplateEdit:setVisible(false)
+    dialog.pnlTemplateSelect:setVisible(false)
+    dialog.pnlWebhookEdit:setVisible(false)
+    dialog.pnlStringList:setVisible(false)
+    dialog.pnlStringEdit:setVisible(false)
+    dialog.pnlTemplateTest:setVisible(true)
 end
 
 local GoStringEditMode = function(dialog,edit)
@@ -218,8 +309,7 @@ local handleTemplateAdd = function(dialog)
     GoPageTemplateEdit(dialog)
 end
 
-local handleTemplateEdit = function(dialog)
-    
+local resetWorkingTemplate = function(dialog)
     local item = dialog.pnlTemplateSelect.cmbTemplate:getSelectedItem()
 
     if item ~= nil then
@@ -233,8 +323,22 @@ local handleTemplateEdit = function(dialog)
             templateKey = templateKey
         }
 
+        return true
+    end
+
+    return false
+end
+
+local handleTemplateEdit = function(dialog)
+    if resetWorkingTemplate(dialog) then
         GoPageTemplateEdit(dialog)
     end
+end
+
+local handleTemplateTest = function(dialog)
+    resetWorkingTemplate(dialog)
+    
+    GoPageTest(dialog)
 end
 
 local handleTemplateDelete = function(dialog)
@@ -434,6 +538,68 @@ end
 local handleStringEditCancel = function(dialog)
     GoStringEditMode(dialog,false)
 end
+
+-- Template Test
+
+local handleTestSend = function (dialog) 
+    local ok,err = pcall(loadstring(dialog.pnlTemplateTest.edtTestScript:getText()))
+
+    if not ok then 
+        DenyMsgBox("Error in script: " .. err)
+    end
+
+    if Webhooker.Server.worker ~= nil then
+        local strOut = ""
+        for i = 1,100 do
+            local s = Webhooker.Server.worker:PopLogLine() 
+            if s == nil then break end
+            strOut = strOut .. s .. "\r\n"	
+        end
+        dialog.pnlTemplateTest.edtTestLogOutput:setText(strOut)
+    end
+end
+
+local handleTestCancel = function (dialog) 
+    GoPageTemplateSelect(dialog)
+end
+
+local randomReplaceString = function()
+
+    local funcInd = math.random(1,2)
+    
+    if funcInd == 1 then
+        local stringHat = {}
+        for k,v in pairs(Webhooker.Server.strings) do
+            stringHat[#stringHat + 1] = k
+        end
+
+        return "string",stringHat[math.random(1,#stringHat)]
+    else
+        return "player","Player" .. math.random(1,99)
+    end
+end
+
+local handleTestExample = function (dialog) 
+
+    local templateKey = workingTemplate.origTemplateKey
+
+    local templateParamCount = 0
+
+    if Webhooker.Server.templates[templateKey] ~= nil then
+        templateParamCount = countTemplateParams(Webhooker.Server.templates[templateKey].bodyRaw)
+    end
+
+    local demoString = [[Webhooker.send("]] .. templateKey .. [["]]
+
+    for i = 1,templateParamCount do
+        local randomFunc,randomKey = randomReplaceString()
+        demoString = demoString .. [[, Webhooker.]] .. randomFunc .. [[("]] .. randomKey .. [[")]]
+    end
+
+    demoString = demoString .. [[)]]
+
+    dialog.pnlTemplateTest.edtTestScript:setText(demoString)
+end
 --------------------------------------------------------------------------------------
 -- CALLBACKS
 --------------------------------------------------------------------------------------
@@ -446,6 +612,7 @@ local showDialog = function(dialog)
     function dialog.pnlTemplateSelect.btnTemplateEdit:onChange() handleTemplateEdit(dialog) end
     
     function dialog.pnlTemplateSelect.btnStringsManage:onChange() GoPageStringsManage(dialog) end
+    function dialog.pnlTemplateSelect.btnTemplateTest:onChange() handleTemplateTest(dialog) end
        
     function dialog.pnlTemplateSelect.btnTemplateDel:onChange() 
             RequestConfirm(function() handleTemplateDelete(dialog) end, "Delete template?")
@@ -486,6 +653,11 @@ local showDialog = function(dialog)
     function dialog.pnlStringEdit.btnStringSubmit:onChange() handleStringEditSubmit(dialog) end
     function dialog.pnlStringEdit.btnStringCancel:onChange() handleStringEditCancel(dialog) end
 
+    -- Template Test
+    function dialog.pnlTemplateTest.btnTestSend:onChange() handleTestSend(dialog) end
+    function dialog.pnlTemplateTest.btnTestCancel:onChange() handleTestCancel(dialog) end
+    function dialog.pnlTemplateTest.btnTestExample:onChange() handleTestExample(dialog) end
+
     -- Initialize lists
     
     ResetWebhookListCombo(dialog)
@@ -518,6 +690,5 @@ end
 -- RETURN
 --------------------------------------------------------------------------------------
 return {
-    callbackOnShowDialog  = showDialog,
-
+    callbackOnShowDialog  = showDialog
 }

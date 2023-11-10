@@ -506,6 +506,20 @@ dialog = {
                                 tabOrder = 3
                             }
                         },
+
+                        btnTemplateTest = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(2,2,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Test",
+                                tabOrder = 3
+                            }
+                        },
                     },
                 },
                 pnlTemplateEdit = {
@@ -1056,6 +1070,115 @@ dialog = {
                                 tabOrder = 3
                             }
                         },                   
+                    },
+                },  
+                pnlTemplateTest = {
+                    type = "Panel",
+                    skin = {
+                        params = {
+                            name ="panelSkin"
+                        }
+                    },
+                    params = {
+                        enabled = true,
+                        bounds = {
+                            x = 0,
+                            y = 0,
+                            w = pageWidthTotal,
+                            h = pageHeightTotal
+                        },
+                        visible = false,
+                        tooltip = "",
+                        zindex = 9,
+                        text = ""
+                    },
+                    children = { 
+                        --Edit row
+                        lblEdit = {
+                            type = "Static",
+                            skin = styles.label.skin,
+                            params = {
+                                bounds = gridBound(1,0,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Script",
+                                tabOrder = 3
+                            }
+                        },
+                        edtTestScript = {
+                            type = "EditBox",
+                            skin = styles.editbox.skin,
+                            params = {
+                                bounds = gridBound(1,1,6,6),
+                                enabled = true,
+                                visible = true,
+                                multiline = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3,
+                                readOnly = false,
+                            }
+                        },
+
+                        --Row 2
+                        btnTestExample = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(7,1,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Example",
+                                tabOrder = 3
+                            }
+                        },  
+                        btnTestSend = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(7,5,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Send",
+                                tabOrder = 3
+                            }
+                        },  
+                        btnTestCancel = {
+                            type = "Button",
+                            skin = styles.button.skin,
+                            params = {
+                                bounds = gridBound(7,6,1,1),
+                                enabled = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "Cancel",
+                                tabOrder = 3
+                            }
+                        }, 
+                        --Row 3
+                        edtTestLogOutput = {
+                            type = "EditBox",
+                            skin = styles.editbox.skin,
+                            params = {
+                                bounds = gridBound(8,1,6,4),
+                                enabled = true,
+                                multiline = true,
+                                visible = true,
+                                tooltip = "",
+                                zindex = 8,
+                                text = "",
+                                tabOrder = 3,
+                                readOnly = true,
+                            }
+                        },                  
                     },
                 },                
             }

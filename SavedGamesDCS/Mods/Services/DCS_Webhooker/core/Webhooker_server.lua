@@ -487,22 +487,20 @@ Webhooker.Server.trySendToWebhook = function (webhook,templateRaw, templateArgs)
 
     if Webhooker.Server.webhooks[webhook] == nil then
         Webhooker.Logging.log("Webhook "..webhook.." not found")
-        return false
+        return nil
 	elseif templateRaw == nil then
 		Webhooker.Logging.log("Missing template for call to webhook "..webhook)
-        return false
+        return nil
     end
 	Webhooker.Server.ensureLuaWorker()
 
-	Webhooker.Server.worker:DoCoroutine(
+	return Webhooker.Server.worker:DoCoroutine(
 		[[Webhooker.Worker.CallAndRetry]], 
 		Webhooker.Serialization.obj2str({
 			templateRaw = templateRaw,
 			templateArgs = templateArgs,
 			webhook = Webhooker.Server.webhooks[webhook]
 		}))
-
-	return true
 end
 
 --[[----------------------------------------------------------------------------------
@@ -553,7 +551,7 @@ Webhooker.Server.ensureLuaWorker = function()
 			return
 		else
 			for i = 1,100 do
-				local s = worker:PopLogLine()
+				local s = Webhooker.Server.worker:PopLogLine()
 				if s == nil then break end
 				Webhooker.Logging.log(s)		
 			end
