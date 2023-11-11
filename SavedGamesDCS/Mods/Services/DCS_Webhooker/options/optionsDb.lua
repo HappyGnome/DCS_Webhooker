@@ -175,9 +175,8 @@ end
 --------------------------------------------------------------------------------------
 
 local GoPageTemplateEdit = function(dialog)
-
     dialog.pnlTemplateEdit.edtName:setText(workingTemplate.templateKey)
-    if webhookKeyItemMap[workingTemplate.webhookKey] ~= nil then
+    if webhookKeyItemMap[workingTemplate.webhookKey] ~= nil then        
         dialog.pnlTemplateEdit.cmbWebhook:selectItem(webhookKeyItemMap[workingTemplate.webhookKey])
     end
     dialog.pnlTemplateEdit.edtBody:setText(workingTemplate.bodyRaw)
@@ -283,11 +282,11 @@ local StashWorkingTemplate = function(dialog)
 end
 
 local ResetTemplateListCombo = function(dialog)
-    webhookKeyItemMap = resetComboListFromTable(dialog.pnlTemplateSelect.cmbTemplate,Webhooker.Server.templates)
+    resetComboListFromTable(dialog.pnlTemplateSelect.cmbTemplate,Webhooker.Server.templates)
 end
 
 local ResetWebhookListCombo = function(dialog)
-    resetComboListFromTable(dialog.pnlTemplateEdit.cmbWebhook,Webhooker.Server.webhooks)
+    webhookKeyItemMap = resetComboListFromTable(dialog.pnlTemplateEdit.cmbWebhook,Webhooker.Server.webhooks)
 end
 
 local ResetStringGrid = function(dialog)
