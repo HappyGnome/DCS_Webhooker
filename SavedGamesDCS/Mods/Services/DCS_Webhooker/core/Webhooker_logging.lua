@@ -10,7 +10,7 @@ end
 
 Webhooker.Logging =
 {
-  logFile = io.open(lfs.writedir()..[[Logs\DCS_Webhooker.log]], "w")
+  logFile = io.open(lfs.writedir()..[[Logs\Webhooker.log]], "w")
 }
 
 Webhooker.Logging.changeFile = function(newFileName)

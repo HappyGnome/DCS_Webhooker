@@ -1,11 +1,11 @@
-net.log("DCS_Webhooker Hook called")
+net.log("Webhooker Hook called")
 
 local string = require("string")
 local tools = require('tools')
 local os = require("os")
 local U  = require('me_utilities')
 local lfs=require('lfs');
-package.path = package.path .. [[;]] .. lfs.writedir() .. [[Mods\Services\DCS_Webhooker\core\?.lua;]]
+package.path = package.path .. [[;]] .. lfs.writedir() .. [[Mods\Services\Webhooker\core\?.lua;]]
 
 require("Webhooker_serialization")
 require("Webhooker_logging")
@@ -51,7 +51,7 @@ Webhooker.Server = {
 
 	-- Module constants
 	--msgPartCat = {template = 1, string = 2, player = 3, func = 4},
-	scriptRoot = lfs.writedir()..[[Mods\Services\DCS_Webhooker]],
+	scriptRoot = lfs.writedir()..[[Mods\Services\Webhooker]],
 	scrEnvMission = "mission",
 	scrEnvServer = "server"
 }
@@ -743,5 +743,5 @@ end
 		Register callbacks
 --]]----------------------------------------------------------------------------------
 DCS.setUserCallbacks(Webhooker.Handlers)
-net.log("DCS_Webhooker callbacks registered")
+net.log("Webhooker callbacks registered")
 

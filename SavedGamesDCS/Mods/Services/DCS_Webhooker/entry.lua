@@ -10,10 +10,10 @@ declare_plugin("Webhooker for DCS by HappyGnome", {
 	binaries = {},
     load_immediate = true,
 	Options = {
-		{ name = "DCS_Webhooker", nameId = "DCS_Webhooker", dir = "options", allow_in_simulation = true; },
+		{ name = "Webhooker", nameId = "Webhooker", dir = "options", allow_in_simulation = true; },
 	},
 	Skins = {
-		{ name = "DCS_Webhooker", dir = "theme" },
+		{ name = "Webhooker", dir = "theme" },
 	},
 	creditsFile = "credits.txt";
 })

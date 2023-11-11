@@ -4,12 +4,12 @@ local lfs		    = require('lfs')
 local ListBoxItem	= require('ListBoxItem')
 local MsgWindow 	= require('MsgWindow')
 
-local webhookerDir = lfs.writedir()..[[Mods\Services\DCS_Webhooker]]
+local webhookerDir = lfs.writedir()..[[Mods\Services\Webhooker]]
 
 package.path = package.path  .. ";" .. webhookerDir .. "\\core\\?.lua;"
 
 require("Webhooker_logging")
-Webhooker.Logging.changeFile([[DCS_Webhooker.options.log]])
+Webhooker.Logging.changeFile([[Webhooker.options.log]])
 
 require("Webhooker_server")
 

@@ -1,8 +1,8 @@
---Hook to load DCS_Webhooker
+--Hook to load Webhooker
 local status, result = pcall(
   function() 
     local lfs=require('lfs');
-    dofile(lfs.writedir()..[[Mods\Services\DCS_Webhooker\init.lua]]); 
+    dofile(lfs.writedir()..[[Mods\Services\Webhooker\init.lua]]); 
   end,nil) 
  
 if not status then

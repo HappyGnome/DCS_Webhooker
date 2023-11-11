@@ -1,7 +1,7 @@
 
 # INTRODUCTION
 
-The aim of DCS_Webhooker is to allow DCS (servers) to post messages to Discord (or other similar API with an HTTPS webhook) from the mission environment.
+The aim of Webhooker is to allow DCS (servers) to post messages to Discord (or other similar API with an HTTPS webhook) from the mission environment.
 
 
 # INSTALLATION
@@ -9,7 +9,7 @@ The aim of DCS_Webhooker is to allow DCS (servers) to post messages to Discord (
 ## Server
 
 ### Saved games
-Copy the contents of the `SavedGamesDCS` folder into your DCS saved games folder. If done correctly then E.g. `.\SavedGamesDCS\Scripts\Hooks\DCS_Webhooker.lua` will be copied to `C:\Users\<username>\SavedGames\DCS\Scripts\Hooks\DCS_Webhooker.lua` (system dependent).
+Copy the contents of the `SavedGamesDCS` folder into your DCS saved games folder. If done correctly then E.g. `.\SavedGamesDCS\Scripts\Hooks\Webhooker.lua` will be copied to `C:\Users\<username>\SavedGames\DCS\Scripts\Hooks\DCS_Webhooker.lua` (system dependent).
 
 ### Environment variables
 Discord webhook URLs may need to be added to the environment on the server. Details TBC.
