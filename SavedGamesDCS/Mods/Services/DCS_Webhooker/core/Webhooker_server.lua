@@ -22,7 +22,6 @@ Webhooker.Server = {
 	config = 
 	{
 		directory = lfs.writedir()..[[Logs\]],
-		channelEnv = "DcsWebhookerUrls",
 		userFlagRoot = "Webhooker",
 		framesPerPoll = 600,
 		maxArgsPerTemplate = 20
@@ -746,20 +745,6 @@ end
 --------------------------------------------------------------------------------------
 -- INIT METHOD CALLS
 --------------------------------------------------------------------------------------
-
---[[----------------------------------------------------------------------------------
-		Get connection strings
---]]----------------------------------------------------------------------------------
-Webhooker.safeCall(
-    function()
-        local envVar = os.getenv(Webhooker.Server.config.channelEnv)
-        if envVar == nil then return end
-
-        for k,v in string.gmatch(envVar,"([^;]+)=([^;]+);?") do
-            --Webhooker.Logging.log(k.." "..v) 
-            Webhooker.Server.webhooks[k] = v
-        end
-    end)
 
 --[[----------------------------------------------------------------------------------
 		Register callbacks
