@@ -1,12 +1,4 @@
-
 InLuaWorker.LogInfo("Webhooker_worker.lua Starting.")
---InLuaWorker.LogInfo("scriptRoot set to " .. scriptRoot)
-
---package.cpath = package.cpath..";"..scriptRoot..[[\https\?.dll;]]
---package.path = package.path..";"..scriptRoot..[[\https\?.lua;]]
-
-InLuaWorker.LogInfo("package.cpath = " .. package.cpath)
-
 
 local string = require("string")
 local ltn12 = require("ltn12")

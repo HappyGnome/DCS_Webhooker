@@ -6,10 +6,15 @@ local MsgWindow 	= require('MsgWindow')
 
 local webhookerDir = lfs.writedir()..[[Mods\Services\DCS_Webhooker]]
 
-dofile(webhookerDir .. [[\core\Webhooker_server.lua]])
+package.path = package.path  .. ";" .. webhookerDir .. "\\core\\?.lua;"
 
-Webhooker.Server.reloadTemplates()
+require("Webhooker_logging")
+Webhooker.Logging.changeFile([[DCS_Webhooker.options.log]])
+
+require("Webhooker_server")
+
 Webhooker.Server.loadConfiguration()
+Webhooker.Server.loadCommonMsgParts()
 
 local webhookKeyItemMap = {}
 
@@ -236,14 +241,18 @@ local GoStringEditMode = function(dialog,edit)
     dialog.pnlStringList:setEnabled(not edit)
 end
 
-local RequestConfirm = function(action, text)
+local RequestConfirm = function(actionYes, text, actionNo)
     local optYes = "YES"
     local optNo = "NO"
 
     local handler = MsgWindow.question(_(text), _('WARNING'), optYes, optNo)
     function handler:onChange(btnTxt)
         if btnTxt == optYes then
-            action()
+            if actionYes ~= nil then
+                actionYes()
+            end
+        elseif actionNo ~= nil then
+            actionNo()
         end
         handler:close()
     end
@@ -306,7 +315,21 @@ local handleTemplateAdd = function(dialog)
         bodyRaw = ""
     }
 
-    GoPageTemplateEdit(dialog)
+    RequestConfirm(
+        function() 
+            workingTemplate.bodyRaw = 
+[[{
+    "username":"ExampleBot",
+    "content":"Message text"
+}]]
+            GoPageTemplateEdit(dialog) 
+        end,
+        "Add Discord Webhook Example",
+        function() 
+            GoPageTemplateEdit(dialog) 
+        end)
+
+    
 end
 
 local resetWorkingTemplate = function(dialog)
@@ -663,27 +686,7 @@ local showDialog = function(dialog)
     ResetWebhookListCombo(dialog)
     ResetTemplateListCombo(dialog)
     ResetStringGrid(dialog)
-    
-    -- dialog.cmbTemplate:clear()
-    -- local first = true
-    -- for k,v in pairs(Webhooker.Server.templates) do
-    --     local item = ListBoxItem.new(_(k))
-    --     item.type = "any"
-    --     dialog.cmbTemplate:insertItem(item)
-    --     if first then dialog.cmbTemplate:selectItem(item) end
-    --     first = false
-    --     dialog.edtBody:setText(item:getText()) -- TODO
-    -- end 
 
-    --[[str = Webhooker.Server.templates["example2"].bodyRaw end
-    dialog.edtBody:setText(str)]]
-
-    --[[if dialog.webhookEditDialog.testButton then
-        function dialog.webhookEditDialog.testButton:onChange()
-            dialog.webhookEditDialog.testText:setText("Pressed")
-            
-        end
-    end]]
 end
 
 --------------------------------------------------------------------------------------

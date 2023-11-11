@@ -13,6 +13,11 @@ Webhooker.Logging =
   logFile = io.open(lfs.writedir()..[[Logs\DCS_Webhooker.log]], "w")
 }
 
+Webhooker.Logging.changeFile = function(newFileName)
+  if Webhooker.Logging.logFile then Webhooker.Logging.logFile:close() end
+  Webhooker.Logging.logFile = io.open(lfs.writedir()..[[Logs\]]..newFileName, "w")
+end
+
 Webhooker.Logging.log = function(str, logFile, prefix)
   if not str and not prefix then 
       return

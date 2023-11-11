@@ -28,7 +28,7 @@ Webhooker.Server = {
 		maxArgsPerTemplate = 20
 	},
 
-	currentLogFile = nil,
+	--currentLogFile = nil,
 	pollFrameTime = 0,
     webhooks = {},
 	templates = {}, -- key = template handle, value = {}
@@ -38,6 +38,7 @@ Webhooker.Server = {
 	nextMsgPartId = 1,
 	nextMsgIndexToCheck = 0,
 	popAgainNextFrame = false,
+	lastWorkerTask = nil,
 	worker = nil,
 
 	 -- key = msgPartCat. value = {key = handle, value = id}
@@ -53,7 +54,7 @@ Webhooker.Server = {
 	--msgPartCat = {template = 1, string = 2, player = 3, func = 4},
 	scriptRoot = lfs.writedir()..[[Mods\Services\DCS_Webhooker]],
 	scrEnvMission = "mission",
-	scrEnvServer = "server"
+	--scrEnvServer = "server"
 }
 
  package.cpath = package.cpath..";"..Webhooker.Server.scriptRoot..[[\core\LuaWorker\?.dll;]]
@@ -220,8 +221,7 @@ end
 		Run files from the messages subdir
 		to install webhook message templates
 --]]----------------------------------------------------------------------------------
-Webhooker.Server.reloadTemplates = function()
-	Webhooker.Server.templates = {}
+Webhooker.Server.loadCommonMsgParts = function()
 	local messagesDir = Webhooker.Server.scriptRoot..[[\messageTemplates]]
 
 	Webhooker.Logging.log(messagesDir)	
@@ -229,14 +229,15 @@ Webhooker.Server.reloadTemplates = function()
 
 		local fullPath = messagesDir .. "\\" .. fpath
 		Webhooker.Logging.log("Found "..fpath)
-		Webhooker.Logging.log(lfs.attributes(fullPath,"mode"))
 
 		if lfs.attributes(fullPath,"mode") == "file" then
 			Webhooker.Logging.log("Loading ".. fpath)	
 			Webhooker.safeCall(dofile,fullPath)		
 		end
 	end
+end
 
+Webhooker.Server.buildAllLookupSections = function()
 	-- Rebuild template lookup
 	Webhooker.Server.buildLookupSection("templates")
 
@@ -278,6 +279,28 @@ Webhooker.Server.buildLookupSection = function (sectionName)
 	Webhooker.Logging.log(section)
 end
 
+
+Webhooker.Server.refreshPlayerList = function()
+	local playerIds = net.get_player_list()
+
+	for k,v in pairs(playerIds) do
+		local name = net.get_player_info(v, 'name')
+	
+		Webhooker.Server.players[name] = name
+	
+		local existingInd = Webhooker.Server.msgPartLookup.players[name]
+		local revLookupEntry = {Webhooker.Server.players, name}
+	
+		if  existingInd == nil then
+			Webhooker.Server.msgPartRevLookup[Webhooker.Server.nextMsgPartId] = revLookupEntry
+			Webhooker.Server.msgPartLookup.players[name] = Webhooker.Server.nextMsgPartId
+			Webhooker.Server.nextMsgPartId = Webhooker.Server.nextMsgPartId + 1
+		end
+	end
+
+	Webhooker.Server.pushLookupPart("players")
+end
+
 --------------------------------------------------------------------------------------
 -- PUSH TO MISSION ENVIRONMENT ACTIONS
 --------------------------------------------------------------------------------------
@@ -300,9 +323,9 @@ Webhooker.Server.pushLookup = function()
 
 	execString = execString .. [[]=])]]
 
-	Webhooker.Logging.log(execString)
 	net.dostring_in(Webhooker.Server.scrEnvMission, execString)
-	Webhooker.Logging.log("All lookup pushed")
+	Webhooker.Logging.log("all lookup pushed")
+	Webhooker.Logging.log(Webhooker.Server.msgPartLookup)
 end
 
 --[[----------------------------------------------------------------------------------
@@ -375,7 +398,7 @@ Webhooker.Server.popMessage = function()
 		return(trigger.misc.getUserFlag("]]..userFlag..[["))
 	]]
 
-	local flagValRaw = net.dostring_in(Webhooker.Server.scrEnvServer, execString)
+	local flagValRaw = net.dostring_in(Webhooker.Server.scrEnvMission, execString)
 
 	local flagVal = tonumber(flagValRaw)
 
@@ -406,7 +429,7 @@ Webhooker.Server.popMessage = function()
 			trigger.action.setUserFlag("]]..userFlag..[[",true)
 		]]
 	
-		net.dostring_in(Webhooker.Server.scrEnvServer, execString)
+		net.dostring_in(Webhooker.Server.scrEnvMission, execString)
 	end
 
 	Webhooker.Logging.log("Popped message flags: ")
@@ -433,7 +456,7 @@ Webhooker.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 			return(trigger.misc.getUserFlag("]]..userFlag..[["))
 		]]
 	
-		local flagRaw = net.dostring_in(Webhooker.Server.scrEnvServer, execString)
+		local flagRaw = net.dostring_in(Webhooker.Server.scrEnvMission, execString)
 
 		local flagVal = tonumber(flagRaw)
 		local args = nil
@@ -467,7 +490,7 @@ Webhooker.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 			trigger.action.setUserFlag("]]..userFlag..[[",true)
 		]]
 
-		net.dostring_in(Webhooker.Server.scrEnvServer, execString)
+		net.dostring_in(Webhooker.Server.scrEnvMission, execString)
 
 		i = i + 1
 	end
@@ -494,13 +517,15 @@ Webhooker.Server.trySendToWebhook = function (webhook,templateRaw, templateArgs)
     end
 	Webhooker.Server.ensureLuaWorker()
 
-	return Webhooker.Server.worker:DoCoroutine(
+	Webhooker.Server.lastWorkerTask = Webhooker.Server.worker:DoCoroutine(
 		[[Webhooker.Worker.CallAndRetry]], 
 		Webhooker.Serialization.obj2str({
 			templateRaw = templateRaw,
 			templateArgs = templateArgs,
 			webhook = Webhooker.Server.webhooks[webhook]
 		}))
+
+	return Webhooker.Server.lastWorkerTask
 end
 
 --[[----------------------------------------------------------------------------------
@@ -576,7 +601,7 @@ Webhooker.Handlers = {}
 		onMissionLoadBegin
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onMissionLoadBegin = function()
-	--if not DCS.isServer() or not DCS.isMultiplayer() then return end --TODO
+	if not DCS.isServer() or not DCS.isMultiplayer() then return end
 	Webhooker.safeCall(Webhooker.Handlers.doOnMissionLoadBegin)
 end
 
@@ -585,12 +610,12 @@ end
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnMissionLoadBegin = function()
 	Webhooker.Server.loadConfiguration()
-	local log_file_name = 'DCS_Webhooker.Logging.log'
+	-- local log_file_name = 'DCS_Webhooker.Logging.log'
 	
-	local fulldir = Webhooker.Server.config.directory.."\\"
+	-- local fulldir = Webhooker.Server.config.directory.."\\"
 	
-	Webhooker.Server.currentLogFile = io.open(fulldir .. log_file_name, "w")
-	Webhooker.Logging.log("Mission "..DCS.getMissionName().." loading",Webhooker.Server.currentLogFile)
+	-- Webhooker.Server.currentLogFile = io.open(fulldir .. log_file_name, "w")
+	Webhooker.Logging.log("Mission "..DCS.getMissionName().." loading")
 
 end
 
@@ -598,7 +623,7 @@ end
 		onMissionLoadBegin
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onMissionLoadEnd = function()
-	--if not DCS.isServer() or not DCS.isMultiplayer() then return end --TODO
+	if not DCS.isServer() or not DCS.isMultiplayer() then return end
 	Webhooker.safeCall(Webhooker.Handlers.doOnMissionLoadEnd)
 end
 
@@ -606,7 +631,7 @@ end
 		doOnMissionLoadEnd
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnMissionLoadEnd = function()
-	Webhooker.Logging.log("Mission "..DCS.getMissionName().." loaded",Webhooker.Server.currentLogFile)
+	Webhooker.Logging.log("Mission "..DCS.getMissionName().." loaded")
 	
 	local file = assert(io.open(Webhooker.Server.scriptRoot .. [[\core\Webhooker_mission_inject.lua]], "r"))
 	local injectContent = file:read("*all")
@@ -626,7 +651,7 @@ end
 		onPlayerConnect
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onPlayerConnect = function(id)
-	--if not DCS.isServer() or not DCS.isMultiplayer() then return end
+	if not DCS.isServer() or not DCS.isMultiplayer() then return end
 	Webhooker.safeCall(Webhooker.Handlers.doOnPlayerConnect,id)
 end
 
@@ -634,30 +659,14 @@ end
 		doOnPlayerConnect
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnPlayerConnect = function(id)
-	local name = Webhooker.Server.getPlayerName(id)
-	--local ucid = Webhooker.Server.getPlayerUcid(id)
-	
-	Webhooker.Server.players[name] = name
-
-	local existingInd = Webhooker.Server.msgPartLookup.players[name]
-	local revLookupEntry = {Webhooker.Server.players, name}
-
-	if  existingInd == nil then
-		Webhooker.Server.msgPartRevLookup[Webhooker.Server.nextMsgPartId] = revLookupEntry
-		Webhooker.Server.msgPartLookup.players[name] = Webhooker.Server.nextMsgPartId
-		Webhooker.Server.nextMsgPartId = Webhooker.Server.nextMsgPartId + 1
-	end
-
-	Webhooker.Server.pushLookupPart("player")
-
-	Webhooker.Logging.log("Player ".. name .. " added")
+	Webhooker.Server.refreshPlayerList()
 end
 
 --[[----------------------------------------------------------------------------------
 		onSimulationStop
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onSimulationStop = function()
-	--if not DCS.isServer() or not DCS.isMultiplayer() then return end
+	if not DCS.isServer() or not DCS.isMultiplayer() then return end
 	Webhooker.safeCall(Webhooker.Handlers.doOnSimulationStop)
 end
 
@@ -667,6 +676,10 @@ end
 Webhooker.Handlers.doOnSimulationStop = function()
 
 	if Webhooker.Server.worker ~= nil then
+		if Webhooker.Server.lastWorkerTask ~= nil then
+			Webhooker.Server.lastWorkerTask:Await(1000)
+		end
+
 		Webhooker.Server.worker:Stop()	
 
 		for i = 1,100 do
@@ -681,7 +694,7 @@ end
 		onSimulationStart
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onSimulationStart = function()
-	--if not DCS.isServer() or not DCS.isMultiplayer() then return end
+	if not DCS.isServer() or not DCS.isMultiplayer() then return end 
 	Webhooker.safeCall(Webhooker.Handlers.doOnSimulationStart)
 end
 
@@ -689,9 +702,10 @@ end
 		doOnSimulationStart
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnSimulationStart = function()
-	Webhooker.Server.reloadTemplates()
+	Webhooker.Server.loadCommonMsgParts()
+	Webhooker.Server.buildAllLookupSections()
+	Webhooker.Server.refreshPlayerList()
 	Webhooker.Server.pushLookup()
-	Webhooker.Logging.log(net.get_player_list())
 
 	Webhooker.Server.ensureLuaWorker()
 end
@@ -702,23 +716,27 @@ end
 Webhooker.Handlers.onSimulationFrame = function()
 	if Webhooker.Server.pollFrameTime > Webhooker.Server.config.framesPerPoll 
 		or Webhooker.Server.popAgainNextFrame then
-		--if not DCS.isServer() or not DCS.isMultiplayer() then return end -- TODO Test
 
 		if Webhooker.Server.pollFrameTime > Webhooker.Server.config.framesPerPoll then
 			Webhooker.Server.pollFrameTime = 0
 		end
 		
+		if not DCS.isServer() or not DCS.isMultiplayer() then return end
+
 		Webhooker.Server.popAgainNextFrame = false
 
 		Webhooker.safeCall(Webhooker.Server.popAndSendOne)
 
 		return
 	elseif Webhooker.Server.pollFrameTime == 111 and Webhooker.Server.worker ~= nil then 
-		-- Spread work between frames (avoid round numbers)
-		for i = 1,100 do
-			local s = Webhooker.Server.worker:PopLogLine() 
-			if s == nil then break end
-			Webhooker.Logging.log(s)		
+
+		if DCS.isServer() and DCS.isMultiplayer() then		
+			-- Spread work between frames (avoid round numbers)
+			for i = 1,100 do
+				local s = Webhooker.Server.worker:PopLogLine() 
+				if s == nil then break end
+				Webhooker.Logging.log(s)		
+			end
 		end
 	end
 
@@ -747,4 +765,5 @@ Webhooker.safeCall(
 		Register callbacks
 --]]----------------------------------------------------------------------------------
 DCS.setUserCallbacks(Webhooker.Handlers)
+net.log("DCS_Webhooker callbacks registered")
 
