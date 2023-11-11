@@ -53,7 +53,7 @@ Webhooker.Server = {
 	--msgPartCat = {template = 1, string = 2, player = 3, func = 4},
 	scriptRoot = lfs.writedir()..[[Mods\Services\DCS_Webhooker]],
 	scrEnvMission = "mission",
-	--scrEnvServer = "server"
+	scrEnvServer = "server"
 }
 
  package.cpath = package.cpath..";"..Webhooker.Server.scriptRoot..[[\core\LuaWorker\?.dll;]]
@@ -390,14 +390,14 @@ Webhooker.Server.popMessage = function()
 
 	local ret = nil
 
-	local userFlag = Webhooker.Server.config.userFlagRoot .. "_" ..Webhooker.Server.nextMsgIndexToCheck
+	local userFlag = Webhooker.Server.config.userFlagRoot .. "_" .. Webhooker.Server.nextMsgIndexToCheck
 	local execString = 
 	[[
 		-- Executed in server mission scripting environment
 		return(trigger.misc.getUserFlag("]]..userFlag..[["))
 	]]
 
-	local flagValRaw = net.dostring_in(Webhooker.Server.scrEnvMission, execString)
+	local flagValRaw = net.dostring_in(Webhooker.Server.scrEnvServer, execString)
 
 	local flagVal = tonumber(flagValRaw)
 
@@ -428,7 +428,7 @@ Webhooker.Server.popMessage = function()
 			trigger.action.setUserFlag("]]..userFlag..[[",true)
 		]]
 	
-		net.dostring_in(Webhooker.Server.scrEnvMission, execString)
+		net.dostring_in(Webhooker.Server.scrEnvServer, execString)
 	end
 
 	Webhooker.Logging.log("Popped message flags: ")
@@ -455,7 +455,7 @@ Webhooker.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 			return(trigger.misc.getUserFlag("]]..userFlag..[["))
 		]]
 	
-		local flagRaw = net.dostring_in(Webhooker.Server.scrEnvMission, execString)
+		local flagRaw = net.dostring_in(Webhooker.Server.scrEnvServer, execString)
 
 		local flagVal = tonumber(flagRaw)
 		local args = nil
@@ -489,7 +489,7 @@ Webhooker.Server.popMessageRecurse = function(userFlagRoot,recurseLevel)
 			trigger.action.setUserFlag("]]..userFlag..[[",true)
 		]]
 
-		net.dostring_in(Webhooker.Server.scrEnvMission, execString)
+		net.dostring_in(Webhooker.Server.scrEnvServer, execString)
 
 		i = i + 1
 	end
@@ -608,14 +608,7 @@ end
 		doOnMissionLoadBegin
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnMissionLoadBegin = function()
-	Webhooker.Server.loadConfiguration()
-	-- local log_file_name = 'DCS_Webhooker.Logging.log'
-	
-	-- local fulldir = Webhooker.Server.config.directory.."\\"
-	
-	-- Webhooker.Server.currentLogFile = io.open(fulldir .. log_file_name, "w")
 	Webhooker.Logging.log("Mission "..DCS.getMissionName().." loading")
-
 end
 
 --[[----------------------------------------------------------------------------------
@@ -631,6 +624,8 @@ end
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.doOnMissionLoadEnd = function()
 	Webhooker.Logging.log("Mission "..DCS.getMissionName().." loaded")
+
+	Webhooker.Server.loadConfiguration()
 	
 	local file = assert(io.open(Webhooker.Server.scriptRoot .. [[\core\Webhooker_mission_inject.lua]], "r"))
 	local injectContent = file:read("*all")
@@ -665,7 +660,6 @@ end
 		onSimulationStop
 --]]----------------------------------------------------------------------------------
 Webhooker.Handlers.onSimulationStop = function()
-	if not DCS.isServer() or not DCS.isMultiplayer() then return end
 	Webhooker.safeCall(Webhooker.Handlers.doOnSimulationStop)
 end
 
@@ -745,7 +739,6 @@ end
 --------------------------------------------------------------------------------------
 -- INIT METHOD CALLS
 --------------------------------------------------------------------------------------
-
 --[[----------------------------------------------------------------------------------
 		Register callbacks
 --]]----------------------------------------------------------------------------------
