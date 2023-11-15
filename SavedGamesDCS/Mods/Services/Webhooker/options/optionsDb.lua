@@ -339,7 +339,7 @@ local handleTemplateAdd = function(dialog)
 }]]
             GoPageTemplateEdit(dialog) 
         end,
-        "Add Discord Webhook Example",
+        "Add Discord webhook example?",
         function() 
             GoPageTemplateEdit(dialog) 
         end)
@@ -524,7 +524,7 @@ end
 
 local handleStringListDel = function(dialog)
 
-    local newKey = dialog.pnlStringEdit.edtKey:getText()
+    local newKey = workingEditString.key
 
     if newKey == nil then return end
 
