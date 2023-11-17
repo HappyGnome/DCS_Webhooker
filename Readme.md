@@ -1,9 +1,10 @@
 
 # INTRODUCTION
 <img src ="./SavedGamesDCS/Mods/Services/Webhooker/theme/WebhookerLogo.png" alt="Webhooker logo" width = 100 align = "right"/>
-Webhooker enables DCS multiplayer servers to make web request triggered from the mission scripting environment. 
-
-The original use case is posting messages to Discord. Due to limitations of communicating between DCS scripting environments, all API requests are generated from template messages and formatted with substituted strings including player names, or predefined strings. While this limits the flexibility of messages, it has the following benefits:
+Webhooker enables DCS multiplayer servers to make web request triggered from the mission scripting environment. The original use case is posting messages to Discord. 
+<br/>
+<br/>
+Due to limitations of communicating between DCS scripting environments, all API requests are generated from template messages and formatted with substituted strings including player names, or predefined strings. While this limits the flexibility of messages, it has the following benefits:
 
 * Templates can only be configured at the server level and webhook urls are kept on the server.
 * Missions can be run single player or on other servers without accidentally triggering your webhooks.
