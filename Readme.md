@@ -20,8 +20,8 @@ File | Contained in (system dependent)
 
 # Basic Usage
 
-## Configure templates
-Configuring message templates on the server and adding strings to substitute can be acheived through the Webhooker special options menu in DCS.
+## Configuring templates
+Configuring message templates on the server and adding strings to substitute can be acheived through the Webhooker special options menu in DCS. Further documentation can be found [here](/Docs/ServerConfigWalkthrough.md).
 
 ## Mission Scripting
 
@@ -32,24 +32,19 @@ Trigger type | Trigger action | Action parameter
 -------------|----------------|------------------
 MISSION START| DO SCRIPT FILE | 'Webhooker_mission.lua'
 
-### Send configured webhook from script
-#### Commands
-There are only a few key commands to know in mission scripting:
-* `Webhooker.send` - format and send a template message
-* `Webhooker.func` - create a positional template parameter in `Webhooker.send` (or `Webhooker.func`) by calling a function defined in the messageTemplates folder.
-* `Webhooker.player` - convert a player name to a positional template parameter in `Webhooker.send` (or `Webhooker.func`)
-* `Webhooker.string` - specify one of the configured strings at positional template parameter in `Webhooker.send` (or `Webhooker.func`)
+### Commands
 
-*Section incomplete - examples needed*
+For full details on Webhooker scripting commands see this [page](/Docs/MissionScriptingCommands.md).
 
-#### Formatting functions
-By default `Webhooker.func` includes options:
-Name      | Description             | Example                 | Converts to
------     |-------------            |----------               |-------------
-int       | Format integer          | `Webhooker.func("int",7)` | "7"
-list      | Concatenate parameters  | `Webhooker.func("list",Webhooker.string(", "),Webhooker.func("int",1), Webhooker.func("int",2))` | "1, 2"
-datetime  | Format date time        | `Webhooker.func("datetime")` | "31/01/2023"
+To send one of your configured requests from mission scripts, call `Webhooker.send` passing the template name and the positional arguments for the template.
 
+The positional arguments can be pre-configured strings, playe names or pre-defined functions, produced respectively by calls to `Webhooker.string`, `Webhooker.player`, and `Webhooker.func`.
+
+For example:
+
+```
+Webhooker.send("MyVictoryMessage",Webhooker.string("Red"),Webhooker.player("User123"))
+```
 # DEPENDENCIES
 
 Webhooker depends upon:
