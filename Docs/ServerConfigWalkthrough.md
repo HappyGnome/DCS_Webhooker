@@ -25,6 +25,10 @@ Add placeholders to your template webhook body. These will be substituted when t
 
 Syntax:
 ```
+%<N>%
+
+OR
+
 %<N><space>
 ```
 Where
@@ -33,7 +37,7 @@ Where
 
 Example:
 ```
-Hello %1 . This is a test message.
+Hello %1%. This is a test message.
 ```
 ![Request body with placeholders](Images/AddPlaceholder.png)
 
