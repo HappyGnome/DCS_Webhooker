@@ -61,7 +61,7 @@ Webhooker.Worker.makeMsgContent = function (rawTemplate,subStrings)
 			at = found + 2
 		else
 			local tok = ""
-			local foundEnd = string.find(rawTemplate,"%s", found + 1)
+			local foundEnd = string.find(rawTemplate,"[%s%%]", found + 1)
 			if foundEnd  == nil then
 				tok = string.sub(rawTemplate, found + 1, atEnd)
 				at = atEnd + 1
