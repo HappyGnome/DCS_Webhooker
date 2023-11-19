@@ -26,9 +26,9 @@ Add placeholders to your template webhook body. These will be substituted when t
 Syntax:
 ```
 %<N>%
-
-OR
-
+```
+Or
+```
 %<N><space>
 ```
 Where

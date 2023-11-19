@@ -445,10 +445,10 @@ Webhooker.Server.popMessage = function()
 		]]
 	
 		net.dostring_in(Webhooker.Server.scrEnvServer, execString)
-	end
 
-	Webhooker.Logging.log("Popped message flags: ")
-	Webhooker.Logging.log(ret)
+		Webhooker.Logging.log("Popped message flags: ")
+		Webhooker.Logging.log(ret)
+	end
 
 	return ret
 

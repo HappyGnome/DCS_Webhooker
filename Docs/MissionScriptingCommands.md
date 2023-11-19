@@ -51,19 +51,27 @@ datetime  | Format date time                    | `Webhooker.func("datetime")`  
 
 
 ### Webhooker.player
-`Webhooker.player` convert a player name to a positional template parameter in `Webhooker.send` (or `Webhooker.func`)
+`Webhooker.player` convert a player name (or names) to a positional template parameter in `Webhooker.send` (or `Webhooker.func`)
 
 Usage:
 ```
 Webhooker.player(<player name>)
 ```
+Or
+```
+Webhooker.player(<player name table>)
+```
 Where:
 
 * `<player name>` - display name of a player in the server.
+* `<player name table>` - table containing a list of names to unpack as parameters
 
-Example:
+Examples:
 ```
 Webhooker.player(unit:getPlayerName())
+```
+```
+Webhooker.func("list",Webhooker.string(", "),Webhooker.player({unit1:getPlayerName(),unit2:getPlayerName()}))
 ```
 
 ### Webhooker.string

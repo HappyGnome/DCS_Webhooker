@@ -62,7 +62,7 @@ Webhooker.send = function(templateKey, ...)
 
             trigger.action.setUserFlag(userFlag,templateId)
 
-            Webhooker.doSendArgs_(userFlag,unpack(arg))
+            Webhooker.doSendArgs_(userFlag,1,unpack(arg))
 
             break
         end
@@ -73,37 +73,47 @@ Webhooker.send = function(templateKey, ...)
     
 end
 
-Webhooker.doSendArgs_ = function(rootFlagName, ...) 
+-- Returns index under rootFlagName that was set to "end of args"
+Webhooker.doSendArgs_ = function(rootFlagName, startIndex,...) 
 
     if arg == nil or #arg == 0 then 
-        trigger.action.setUserFlag(rootFlagName .. "_1",false)
-        return 
+        trigger.action.setUserFlag(rootFlagName .. "_" .. startIndex,false)
+        return startIndex
     end
+
+    local nextIdx = startIndex
 
     for i,v in ipairs(arg) do
 
-        local userFlag = rootFlagName .. "_" .. i
+        local userFlag = rootFlagName .. "_" .. nextIdx
 
         if type(v) =='number' then
             if v >= 0 then v = v + 2 end -- 0 and 1 are reserved boolean values
 
             trigger.action.setUserFlag(userFlag,v)
-        elseif type(v) =='table' and #v > 0 then
+        elseif type(v) =='table' and v.unpack then
+            nextIdx = Webhooker.doSendArgs_(rootFlagName, nextIdx, unpack(v)) - 1
+
+        elseif type(v) =='table' and #v > 0 then -- function with args to unpack
             local handle = v[1]
             if handle >= 0 then handle = handle + 2 end
             trigger.action.setUserFlag(userFlag,handle)
 
             if type(v[2]) == 'table' then
-                Webhooker.doSendArgs_(userFlag, unpack(v[2]))
+                Webhooker.doSendArgs_(userFlag,1, unpack(v[2]))
             else
-                Webhooker.doSendArgs_(userFlag)
+                Webhooker.doSendArgs_(userFlag,1)
             end
         else 
             trigger.action.setUserFlag(userFlag,true) -- invalid argument, add placeholder to indicate nil
         end
+
+        nextIdx = nextIdx + 1
     end
 
-    trigger.action.setUserFlag(rootFlagName .. "_" .. (#arg + 1),false) -- end of arguments
+    trigger.action.setUserFlag(rootFlagName .. "_" .. nextIdx,false) -- end of arguments
+
+    return nextIdx
 end
 
 ------------------------------------------------------------------
@@ -129,7 +139,7 @@ end
         Format string for inclusion 
         in send request
 
-        returns: {msgPartLookupKey}
+        returns: msgPartLookupKey
 --]]------------------------------------------------------------------------
 Webhooker.string = function(stringKey)
     return Webhooker.msgPartLookup.strings[stringKey]
@@ -139,8 +149,17 @@ end
         Format player name for inclusion 
         in send request
 
-        returns: {msgPartLookupKey}
+        returns: msgPartLookupKey
 --]]------------------------------------------------------------------------
 Webhooker.player = function(playerKey)
+    if type(playerKey) == 'table' then
+        local ret = {unpack = true}
+
+        for i,v in ipairs(playerKey) do
+            ret[i] = Webhooker.msgPartLookup.players[v]
+        end
+
+        return ret 
+    end
     return Webhooker.msgPartLookup.players[playerKey]
 end

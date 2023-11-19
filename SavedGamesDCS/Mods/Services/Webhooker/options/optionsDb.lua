@@ -95,8 +95,20 @@ local doTestSend = function(templateKey, args)
         error("Invalid template key: " .. templateKey)
     end
     local template = Webhooker.Server.templates[templateKey]
+
+    local argsRepack={}
+
+    for i,v in ipairs(args) do
+        if type(v) == 'table' and v.unpack then
+            for j,w in ipairs(v) do
+                argsRepack[#argsRepack + 1] = w
+            end
+        else
+            argsRepack[#argsRepack + 1] = v
+        end        
+    end
     
-    local task = Webhooker.Server.trySendToWebhook(template.webhookKey,template.bodyRaw,args)
+    local task = Webhooker.Server.trySendToWebhook(template.webhookKey,template.bodyRaw,argsRepack)
     task:Await(1000)
 end
 
@@ -123,6 +135,9 @@ Webhooker.string = function(stringKey)
 end
 
 Webhooker.player = function(playerKey)
+    if type(playerKey) == 'table' then
+        playerKey.unpack = true
+    end
     return playerKey
 end
 

@@ -118,6 +118,7 @@ Webhooker.Worker.MakeWebhookCall_ = function (webhookUrl,body)
 
     if T == nil or code == nil or code < 200 or code >= 300 then
         if code == nil then code = "??" end
+		if status == nil then status = "??" end
         InLuaWorker.LogInfo("Failed to Call Discord. Http Code: " .. code .. " Status: " .. status)
 		return false
     end
