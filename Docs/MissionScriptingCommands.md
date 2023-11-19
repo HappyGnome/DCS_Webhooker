@@ -43,11 +43,13 @@ Where:
 
 #### Default functions
 By default `Webhooker.func` includes options:
-Name      | Description                         | Example                                                                                          | Result
------     |-------------                        |----------                                                                                        |-------------
-int       | Format integer                      | `Webhooker.func("int",7)`                                                                        | "7"
-list      | Concatenate string parameters       | `Webhooker.func("list",Webhooker.string(", "),Webhooker.func("int",1), Webhooker.func("int",2))` | "1, 2"
-datetime  | Format date time                    | `Webhooker.func("datetime")`                                                                     | "31/01/2023"
+Name        | Description                                   | Example                                                                                          | Result
+-----       |-------------                                  |----------                                                                                        |-------------
+datetime    | Format date time                              | `Webhooker.func("datetime")`                                                                     | "31/01/2023"
+int         | Format integer                                | `Webhooker.func("int",7)`                                                                        | "7"
+list        | Concatenate string parameters                 | `Webhooker.func("list",Webhooker.string(", "),Webhooker.func("int",1), Webhooker.func("int",2))` | "1, 2"
+playerCount | Number of players connected                   | `Webhooker.func("playerCount")`                                                                  | "3"
+playerList  | List names of all players connected now       | `Webhooker.func("playerList")`                                                                   | "user0012, PlaneDude6 and fred"
 
 
 ### Webhooker.player

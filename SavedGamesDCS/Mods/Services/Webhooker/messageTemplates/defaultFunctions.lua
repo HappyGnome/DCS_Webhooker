@@ -79,5 +79,35 @@ Webhooker.Server.addFunc("datetime",function()
 	return os.date("%d/%m/%Y %X")
 end)
 
+Webhooker.Server.addFunc("playerCount",function()
+	local list = net.get_player_list()
+	if not list then
+		return 0
+	end
+
+	return #list
+end)
+
+Webhooker.Server.addFunc("playerList",function()
+	local playerIds = net.get_player_list()
+	local ret = ""
+
+	if not playerIds then return ret	end
+
+	for i = 1,#playerIds do
+		if i == #playerIds and i > 1 then
+			ret = ret .. " and "
+		elseif i > 1 then
+			ret = ret .. ", "
+		end
+		ret = ret .. net.get_name(playerIds[i])
+	end
+
+	return ret
+end)
+
+------------------------------------------------------------------------
+-- Strings
+
 Webhooker.Server.addString(", ") -- list sep
 Webhooker.Server.addString(" | ") -- table col sep
