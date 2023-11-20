@@ -48,8 +48,8 @@ Name        | Description                                   | Example           
 datetime    | Format date time                              | `Webhooker.func("datetime")`                                                                     | "31/01/2023"
 int         | Format integer                                | `Webhooker.func("int",7)`                                                                        | "7"
 list        | Concatenate string parameters                 | `Webhooker.func("list",Webhooker.string(", "),Webhooker.func("int",1), Webhooker.func("int",2))` | "1, 2"
-playerCount | Number of players connected                   | `Webhooker.func("playerCount")`                                                                  | "3"
-playerList  | List names of all players connected now       | `Webhooker.func("playerList")`                                                                   | "user0012, PlaneDude6 and fred"
+playerCount | Number of players connected. Optionally filtered by side.                  | `Webhooker.func("playerCount",coalition.side.RED)`, or `Webhooker.func("playerCount")`                                                                  | "3"
+playerList  | List names of all players connected now. Optionally filtered by side.        | `Webhooker.func("playerList",coalition.side.BLUE)`, or  `Webhooker.func("playerList")`                                                               | "user0012, PlaneDude6 and fred"
 
 
 ### Webhooker.player
