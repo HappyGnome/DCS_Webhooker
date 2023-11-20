@@ -94,7 +94,7 @@ Webhooker.doSendArgs_ = function(rootFlagName, startIndex,...)
         elseif type(v) =='table' and v.unpack then
             nextIdx = Webhooker.doSendArgs_(rootFlagName, nextIdx, unpack(v)) - 1
 
-        elseif type(v) =='table' and #v > 0 then -- function with args to unpack
+        elseif type(v) =='table' and type(v[1]) == 'number' then -- function with args to unpack
             local handle = v[1]
             if handle >= 0 then handle = handle + 2 end
             trigger.action.setUserFlag(userFlag,handle)

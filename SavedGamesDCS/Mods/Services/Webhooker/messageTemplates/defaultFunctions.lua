@@ -79,28 +79,52 @@ Webhooker.Server.addFunc("datetime",function()
 	return os.date("%d/%m/%Y %X")
 end)
 
-Webhooker.Server.addFunc("playerCount",function()
+Webhooker.Server.addFunc("playerCount",function(...)
 	local list = net.get_player_list()
 	if not list then
 		return 0
 	end
 
-	return #list
+	if arg == nil or arg[1] == nil then 
+		return #list
+	end
+
+	sideFilter = arg[1]
+
+	local count = 0
+
+	for i = 1,#list do
+		if sideFilter == net.get_player_info(list[i], 'side') then
+			count = count + 1
+		end
+	end
+
+	return count
 end)
 
-Webhooker.Server.addFunc("playerList",function()
+Webhooker.Server.addFunc("playerList",function(...)
 	local playerIds = net.get_player_list()
 	local ret = ""
+	local sideFilter = nil
+	local playerNames = {}
 
-	if not playerIds then return ret	end
+	if not playerIds then return ret end
+
+	if arg ~= nil then sideFilter = arg[1] end
 
 	for i = 1,#playerIds do
-		if i == #playerIds and i > 1 then
+		if sideFilter == nil or sideFilter == net.get_player_info(playerIds[i], 'side') then
+			playerNames[#playerNames + 1] = net.get_player_info(playerIds[i], 'name')
+		end
+	end
+
+	for i = 1,#playerNames do
+		if i == #playerNames and i > 1 then
 			ret = ret .. " and "
 		elseif i > 1 then
 			ret = ret .. ", "
 		end
-		ret = ret .. net.get_name(playerIds[i])
+		ret = ret .. playerNames[i]
 	end
 
 	return ret
